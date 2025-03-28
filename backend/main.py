@@ -1,52 +1,54 @@
-from typing import Union, TypeVar, Generic
-
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Body, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI()
 
 
-class Image(BaseModel):
-    url: str
-    name: str
-
-
 class Item(BaseModel):
     name: str
-    tags: str
-    variant: Union[int, str]  # int 또는 str 허용
+    description: str = None
+    price: float
 
 
-T = TypeVar("T")
+def get_item_from_db(item_id):
+    return {
+        "name": "Simple Item",
+        "description": "A simple item description",
+        "price": 50.0,
+        "dis_price": 45.0
+    }
 
 
-class GenericItem(BaseModel, Generic[T]):
-    name: str
-    content: T
+@app.get("/items/{item_id}", response_model=Item)  # response_model: 데이터 검증, 자동 문서 생성, 보안
+def read_item(item_id: int):
+    try:
+        if item_id < 0:
+            raise ValueError("음수는 허용되지 않습니다.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return get_item_from_db(item_id)
 
 
-@app.post("/generic_items/")
-def create_item(item: GenericItem[int]):
-    return {"item": item}
-
-
-@app.get("/items/{item_id}")
-def read_user_item(item_id: int):
-    return {"item_id": item_id}
-
-
-@app.get("/items/")
-def read_items(q: list[int] = Query([])):
+@app.get("/users/")
+def read_users(q: str = Query(None, max_length=50)):  # URL에서 ? 뒤에 오는 키-값 쌍으로 이루어진 문자열
     return {"q": q}
 
 
-@app.post("/create-item/")
-def create_item(item: dict[str, int]):
-    return item
+@app.get("/items/")
+def read_items(item_id: int = Query(...)):  # ... 은 해당 필드가 필수라는 뜻
+    return {"item_id": item_id}
 
 
 @app.post("/items/")
-def create_item(item: Item):
+def create_item(item: dict = Body(...)):
+    return {"item": item}
+
+
+@app.post("/advanced_items/")
+def create_advanced_item(
+        item: dict = Body(default=None, example={"key": "value"}, media_type="application/json",
+                          alias="item_alias",
+                          title="Sample Item", description="This is a sample item", deprecated=False)):
     return {"item": item}
 
 # import os
