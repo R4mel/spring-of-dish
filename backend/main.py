@@ -1,55 +1,24 @@
-from fastapi import FastAPI, Query, Body, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, APIRouter
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 app = FastAPI()
 
-
-class Item(BaseModel):
-    name: str
-    description: str = None
-    price: float
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["example.com", "localhost", "127.0.0.1"])
+# APIRouter를 통한 라우트(허용된 호스트에서만 접근 가능) <-> 메인 애플리케이션을 통한 일반 라우트(모든 호스트에서 접근 가능)
+router = APIRouter()
 
 
-def get_item_from_db(item_id):
-    return {
-        "name": "Simple Item",
-        "description": "A simple item description",
-        "price": 50.0,
-        "dis_price": 45.0
-    }
+@router.get("/items/")
+def read_items():
+    return {"item": "apple"}
 
 
-@app.get("/items/{item_id}", response_model=Item)  # response_model: 데이터 검증, 자동 문서 생성, 보안
-def read_item(item_id: int):
-    try:
-        if item_id < 0:
-            raise ValueError("음수는 허용되지 않습니다.")
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return get_item_from_db(item_id)
+@router.get("/users/")
+def read_users():
+    return {"user": "John"}
 
 
-@app.get("/users/")
-def read_users(q: str = Query(None, max_length=50)):  # URL에서 ? 뒤에 오는 키-값 쌍으로 이루어진 문자열
-    return {"q": q}
-
-
-@app.get("/items/")
-def read_items(item_id: int = Query(...)):  # ... 은 해당 필드가 필수라는 뜻
-    return {"item_id": item_id}
-
-
-@app.post("/items/")
-def create_item(item: dict = Body(...)):
-    return {"item": item}
-
-
-@app.post("/advanced_items/")
-def create_advanced_item(
-        item: dict = Body(default=None, example={"key": "value"}, media_type="application/json",
-                          alias="item_alias",
-                          title="Sample Item", description="This is a sample item", deprecated=False)):
-    return {"item": item}
+app.include_router(router, prefix="/api", tags=["items"])
 
 # import os
 #
