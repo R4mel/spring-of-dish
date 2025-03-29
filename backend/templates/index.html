@@ -5,9 +5,22 @@
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>FastAPI Template</title>
+    <title>Websocket Test</title>
+    <script defer src="script.js"></script>
 </head>
 <body>
-<h1>Hello, {{username}}</h1>
+<h1>WebSocket Test Page</h1>
+
+<!-- 연결 및 해제 버튼 -->
+<button id="connect">Connect</button>
+<button id="disconnect" disabled>Disconnect</button>
+
+<!-- 사용자로부터 메시지를 입력받는 필드 -->
+<p>Enter your message: <input type="text" id="userMessage"></p>
+<button id="sendMessage">Send Message</button>
+
+<!-- 현재 연결 상태와 메시지 로그를 표시 -->
+<p>Status: <span id="status">Disconnected</span></p>
+<div id="message"></div>
 </body>
 </html>

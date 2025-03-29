@@ -1,63 +1,38 @@
-from fastapi import FastAPI, APIRouter
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.routing import APIRouter
 
 app = FastAPI()
 
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=["example.com", "localhost", "127.0.0.1"])
-# APIRouter를 통한 라우트(허용된 호스트에서만 접근 가능) <-> 메인 애플리케이션을 통한 일반 라우트(모든 호스트에서 접근 가능)
-router = APIRouter()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"Returned Message: {data} From Server")
+    except WebSocketDisconnect:
+        print("WebSocket disconnected")
+        await websocket.close(code=1000)
+
+
+def check_token(token: str):
+    if token != "my-secret-token":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return token
+
+
+router = APIRouter(dependencies=[Depends(check_token)])
 
 
 @router.get("/items/")
-def read_items():
-    return {"item": "apple"}
+def ge_items():
+    return {"message": "Access granted, you can view the items."}
 
 
-@router.get("/users/")
-def read_users():
-    return {"user": "John"}
+@app.get("/public/")
+def read_public():
+    return {"message": "Thisis a public endpoint."}
 
 
-app.include_router(router, prefix="/api", tags=["items"])
-
-# import os
-#
-# from fastapi import FastAPI
-# from fastapi.middleware.cors import CORSMiddleware
-# from openai import OpenAI
-# from pydantic import BaseModel
-#
-# client = OpenAI(
-#     api_key=os.environ.get("OPENAI_API_KEY"),
-# )
-#
-# app = FastAPI()
-#
-# # CORS 설정
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-#
-#
-# class InputIngredients(BaseModel):
-#     text: str
-#
-#
-# def HowToCook(text):
-#     response = client.responses.create(
-#         model="gpt-4o",
-#         instructions="요리 연구가의 소개",
-#         input=f"{text}로 만들 수 있는 음식과 요리 방법을 알려주세요."
-#     )
-#
-#     return response
-#
-#
-# @app.post("/cook")
-# def cook_howtocook(input_text: InputIngredients):
-#     response = HowToCook(input_text.text)
-#     return {"how to cook": response}
+app.include_router(router, prefix="/api")
