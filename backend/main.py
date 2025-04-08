@@ -1,38 +1,25 @@
-from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.routing import APIRouter
+from fastapi import FastAPI
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
 
 app = FastAPI()
 
+DATABASE_URL = "mysql+pymysql://root:root@127.0.0.1/python"
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        while True:
-            data = await websocket.receive_text()
-            await websocket.send_text(f"Returned Message: {data} From Server")
-    except WebSocketDisconnect:
-        print("WebSocket disconnected")
-        await websocket.close(code=1000)
+engine = create_engine(DATABASE_URL)
+
+Base = declarative_base()
 
 
-def check_token(token: str):
-    if token != "my-secret-token":
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return token
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True)
+    email = Column(String(120))
 
+Base.metadata.create_all(engine)
 
-router = APIRouter(dependencies=[Depends(check_token)])
+@app.get("/")
+def read_root():
+    return {"message": "Hello World!"}
 
-
-@router.get("/items/")
-def ge_items():
-    return {"message": "Access granted, you can view the items."}
-
-
-@app.get("/public/")
-def read_public():
-    return {"message": "Thisis a public endpoint."}
-
-
-app.include_router(router, prefix="/api")
