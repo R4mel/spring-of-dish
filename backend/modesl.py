@@ -9,8 +9,8 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)  # 내부 사용자 ID
     kakao_id = Column(Integer, unique=True, nullable=False)  # 카카오에서 제공된 고유 ID
-    name = Column(VARCHAR(255), nullable=True)  # 카카오에서 제공된 이름
-    email = Column(VARCHAR(255), nullable=True)  # 카카오에서 제공된 이메일
+    name = Column(VARCHAR(255), nullable=False)  # 카카오에서 제공된 이름
+    email = Column(VARCHAR(255), nullable=False)  # 카카오에서 제공된 이메일
     profile_image = Column(VARCHAR(255), nullable=True)  # 카카오 프로필 이미지를 저장
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     modified_at = Column(DateTime(timezone=True), nullable=True, onupdate=func.now())
@@ -37,8 +37,8 @@ class Recipe(Base):
     id = Column(Integer, primary_key=True, index=True)  # 레시피 ID
     title = Column(VARCHAR(255), nullable=False)  # 레시피 제목
     cooking_method = Column(String, nullable=False)  # 요리 방법
-    youtube_video_id = Column(VARCHAR(255), nullable=True)  # 유튜브 영상 ID
-    youtube_url = Column(VARCHAR(255), nullable=True)  # 유튜브 영상 URL
+    youtube_video_id = Column(VARCHAR(255), nullable=False)  # 유튜브 영상 ID
+    youtube_url = Column(VARCHAR(255), nullable=False)  # 유튜브 영상 URL
     youtube_thumbnail_url = Column(VARCHAR(255), nullable=False)  # 유튜브 썸네일
 
     # 레시피에 필요한 재료와의 관계
