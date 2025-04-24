@@ -1,12 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+import httpx
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
-@app.get("/")
-def home():
-    return "Hello FastAPI!"
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", reload=True, host="0.0.0.0", port=8000)
-    # host 무조건 작성, 작성안하면 외부에서 접속 X
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
+KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
+KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI")
