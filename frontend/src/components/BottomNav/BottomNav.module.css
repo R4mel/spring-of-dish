@@ -4,7 +4,6 @@
     left: 0;
     width: 100%;
     height: 60px;
-  
     background-color: #fff;
     border-top: 1px solid #ddd;
   
@@ -22,6 +21,6 @@
   
   .navItem span {
     font-size: 0.9rem;
-    color: #333;
+    color: #AFD77E;
   }
   

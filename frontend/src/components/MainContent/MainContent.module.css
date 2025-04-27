@@ -1,13 +1,15 @@
 .main {
-    /* 헤더 높이와 네비게이션 높이를 제외한 공간을 자동으로 채우도록 */
-    position: absolute;
-    top: 56px;      /* 헤더 높이만큼 띄움 */
-    bottom: 60px;   /* 네비게이션 높이만큼 띄움 */
-    left: 0;
-    right: 0;
-    overflow-y: auto; /* 내용이 길어지면 스크롤 가능 */
-    padding: 1rem;
-    background-color: #f9f9f9;
+  position: absolute;
+  top: 56px;
+  bottom: 60px;
+  left: 0;
+  right: 0;
+  display: flex;            /* Flexbox 활성화 */
+  flex-direction: column;   /* 세로로 쌓기 */
+  align-items: center;      /* 수평 중앙 정렬 */
+  justify-content: center;  /* 수직 중앙 정렬 */
+  padding: 1rem;
+  background-color: #f9f9f9;
   }
   
   .imageWrapper {
@@ -26,6 +28,7 @@
     font-size: 1.2rem;
     margin-top: 1.5rem;
     margin-bottom: 0.5rem;
+    color:#AFD77E;
   }
   
   .description {
