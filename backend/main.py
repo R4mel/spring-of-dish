@@ -1,9 +1,11 @@
 import os
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from jose import jwt
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, JSONResponse
@@ -31,6 +33,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)))
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 
 @app.get("/login/kakao")
@@ -75,4 +85,17 @@ async def kakao_callback(request: Request):
         user_resp = await client.get(user_info_url, headers=headers)
         user_json = user_resp.json()
 
-    return JSONResponse(user_json)
+        # JWT 발급 (예시: 카카오 id, 닉네임만 payload에 포함)
+    kakao_id = user_json.get("id")
+    nickname = user_json.get("properties", {}).get("nickname")
+    payload = {
+        "kakao_id": kakao_id,
+        "nickname": nickname,
+    }
+    jwt_token = create_access_token(payload)
+
+    return JSONResponse({
+        "access_token": jwt_token,
+        "token_type": "bearer",
+        "user": user_json
+    })
