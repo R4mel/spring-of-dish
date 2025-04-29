@@ -1,35 +1,36 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import styles from './App.module.css';
+
+import HomePage from './pages/HomePage';
+import IngredientPage from './pages/IngredientPage';
+import FridgePage from './pages/FridgePage';  // ✨ 꼭 필요
+import RecipePage from './pages/RecipePage';   // ✨ 있으면 가져오고
+
+import Header from './components/Header/Header';
+import BottomNav from './components/BottomNav/BottomNav';
+import MainContent from './components/MainContent/MainContent'; // 홈 메인화면
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <Router>
+      <div className={styles.appContainer}>
+        {/* 상단 헤더 */}
+        <Header />
+
+        {/* 메인 콘텐츠 */}
+        <Routes>
+          <Route path="/" element={<MainContent />} />            {/* 홈 메인 */}
+          <Route path="/ingredient" element={<IngredientPage />} /> {/* 재료 추가 */}
+          <Route path="/fridge" element={<FridgePage />} />         {/* 장바구니 페이지 */}
+          <Route path="/recipe" element={<RecipePage />} />         {/* 레시피 페이지 */}
+        </Routes>
+
+        {/* 하단 네비게이션 */}
+        <BottomNav />
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </Router>
+  );
 }
 
-export default App
+export default App;
