@@ -1,14 +1,15 @@
 import os
 from datetime import datetime, timedelta
-from typing import Any
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from jose import jwt
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import RedirectResponse, JSONResponse
+from starlette.responses import RedirectResponse, JSONResponse, HTMLResponse
+from starlette.templating import Jinja2Templates
 
 from database import Base, engine
 
@@ -33,6 +34,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+templates = Jinja2Templates(directory="templates")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
