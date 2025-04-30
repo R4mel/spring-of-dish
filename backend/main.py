@@ -136,39 +136,6 @@ async def profile(request: Request):
         )
 
 
-@app.get("/friends")
-async def friends(request: Request):
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    jwt_token = auth_header.split(" ")[1]
-    try:
-        payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
-        kakao_access_token = payload.get("kakao_access_token")
-
-        if not kakao_access_token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-            )
-
-        headers = {'Authorization': f'Bearer {kakao_access_token}'}
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{kapi_host}/v1/api/talk/friends", headers=headers)
-            return JSONResponse(content=resp.json())
-    except jwt.JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-
 @app.get("/message")
 async def message(request: Request):
     auth_header = request.headers.get("Authorization")
@@ -197,45 +164,6 @@ async def message(request: Request):
 
         async with httpx.AsyncClient() as client:
             resp = await client.post(f"{kapi_host}/v2/api/talk/memo/default/send", headers=headers, data=data)
-            return JSONResponse(content=resp.json())
-    except jwt.JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-
-@app.get("/friend-message")
-async def friends_message(request: Request, uuid: str):
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    jwt_token = auth_header.split(" ")[1]
-    try:
-        payload = jwt.decode(jwt_token, SECRET_KEY, algorithms=[ALGORITHM])
-        kakao_access_token = payload.get("kakao_access_token")
-
-        if not kakao_access_token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-            )
-
-        headers = {'Authorization': f'Bearer {kakao_access_token}'}
-        data = {
-            'receiver_uuids': f'[{uuid}]',
-            'template_object': message_template
-        }
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(f"{kapi_host}/v1/api/talk/friends/message/default/send", headers=headers,
-                                     data=data)
             return JSONResponse(content=resp.json())
     except jwt.JWTError:
         raise HTTPException(

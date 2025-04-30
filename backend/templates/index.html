@@ -42,7 +42,6 @@
 <div>
     <a href="/authorize" class="button">Login with Kakao</a>
     <button onclick="getProfile()" class="button">Get Profile</button>
-    <button onclick="getFriends()" class="button">Get Friends</button>
     <button onclick="sendMessage()" class="button">Send Message</button>
     <button onclick="logout()" class="button">Logout</button>
     <button onclick="unlink()" class="button">Unlink</button>
@@ -79,27 +78,6 @@
         } catch (error) {
             console.error('Error:', error);
             alert('Failed to get profile');
-        }
-    }
-
-    async function getFriends() {
-        const token = localStorage.getItem('kakaoToken');
-        if (!token) {
-            alert('Please login first');
-            return;
-        }
-
-        try {
-            const response = await fetch('/friends', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const data = await response.json();
-            document.getElementById('friends').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-        } catch (error) {
-            console.error('Error:', error);
-            alert('Failed to get friends');
         }
     }
 
