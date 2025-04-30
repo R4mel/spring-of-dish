@@ -61,7 +61,7 @@ async def authorize(request: Request):
     return RedirectResponse(redirect_url)
 
 
-@app.get("/redirect")
+@app.post("/redirect")
 async def kakao_callback(request: Request):
     code = request.query_params.get("code")
     if not code:
