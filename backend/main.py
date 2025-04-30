@@ -2,10 +2,11 @@ import os
 from datetime import datetime, timedelta
 
 import httpx
+import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from jose import jwt
 from fastapi.staticfiles import StaticFiles
+from jose import jwt
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, JSONResponse, HTMLResponse
@@ -24,6 +25,9 @@ KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI")
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+kauth_host = "https://kauth.kakao.com"
+kapi_host = "https://kapi.kakao.com"
+message_template = '{"object_type":"text","text":"Hello, world!","link":{"web_url":"https://developers.kakao.com","mobile_web_url":"https://developers.kakao.com"}}'
 
 # 프론트 서버: 5500, 백엔드 서버: 8000 CORS 문제 해결
 # 배포 시, allow_origins 수정 필요
@@ -45,41 +49,32 @@ async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)))
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
-@app.get("/login/kakao")
-def login_kakao():
-    kakao_auth_url = (
-        f"https://kauth.kakao.com/oauth/authorize"
-        f"?client_id={KAKAO_CLIENT_ID}"
-        f"&redirect_uri={KAKAO_REDIRECT_URI}"
-        f"&response_type=code"
+@app.get("/authorize", response_class=RedirectResponse)
+async def authorize(request: Request):
+    scope = request.query_params.get("scope")
+    scope_param = f"&scope={scope}" if scope else ""
+    redirect_url = (
+        f"{kauth_host}/oauth/authorize"
+        f"?response_type=code&client_id={KAKAO_CLIENT_ID}"
+        f"&redirect_uri={KAKAO_REDIRECT_URI}{scope_param}"
     )
-    return RedirectResponse(kakao_auth_url)
+    return RedirectResponse(redirect_url)
 
 
-@app.get("/auth/kakao/callback")
+@app.get("/redirect")
 async def kakao_callback(request: Request):
     code = request.query_params.get("code")
     if not code:
         return JSONResponse({"error": "No code provided"}, status_code=400)
 
-    # 1. 토큰 요청
-    token_url = "https://kauth.kakao.com/oauth/token"
+    token_url = kauth_host + "/oauth/token"
     data = {
         "grant_type": "authorization_code",
         "client_id": KAKAO_CLIENT_ID,
         "redirect_uri": KAKAO_REDIRECT_URI,
+        "client_secret": KAKAO_CLIENT_SECRET,
         "code": code,
     }
-    if KAKAO_CLIENT_SECRET:
-        data["client_secret"] = KAKAO_CLIENT_SECRET
 
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(token_url, data=data)
@@ -89,23 +84,16 @@ async def kakao_callback(request: Request):
         if not access_token:
             return JSONResponse({"error": "Failed to get access token", "detail": token_json}, status_code=400)
 
-        # 2. 사용자 정보 요청
-        user_info_url = "https://kapi.kakao.com/v2/user/me"
-        headers = {"Authorization": f"Bearer {access_token}"}
-        user_resp = await client.get(user_info_url, headers=headers)
-        user_json = user_resp.json()
+    return RedirectResponse("/?login=success")
 
-        # JWT 발급 (예시: 카카오 id, 닉네임만 payload에 포함)
-    kakao_id = user_json.get("id")
-    nickname = user_json.get("properties", {}).get("nickname")
-    payload = {
-        "kakao_id": kakao_id,
-        "nickname": nickname,
-    }
-    jwt_token = create_access_token(payload)
 
-    return JSONResponse({
-        "access_token": jwt_token,
-        "token_type": "bearer",
-        "user": user_json
-    })
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    expire = datetime.datetime.now() + (expires_delta or timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)))
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=4000, reload=True)
