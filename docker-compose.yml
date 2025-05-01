@@ -1,0 +1,49 @@
+version: '3.9'
+
+services:
+  # mariadb:
+  #   image: mariadb:latest
+  #   container_name: spring-db
+  #   restart: always
+  #   environment:
+  #     MARIADB_ROOT_PASSWORD: rootpassword
+  #     MARIADB_DATABASE: mydatabase
+  #     MARIADB_USER: root
+  #     MARIADB_PASSWORD: rootpassword
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mariadb_data:/var/lib/mysql
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-prootpassword"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+
+  backend:
+      build:
+        context: ./backend
+        dockerfile: Dockerfile
+      container_name: spring-backend
+      restart: always
+      ports:
+        - "8000:8000"
+      # depends_on:
+      #   mariadb:
+      #     condition: service_healthy
+      # environment:
+      #   - DATABASE_URL=mysql+pymysql://root:rootpassword@mariadb:3306/mydatabase
+      volumes:
+        - ./backend:/app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: spring-front
+    restart: always
+    ports:
+      - "3000:3000"
+
+volumes:
+  mariadb_data:

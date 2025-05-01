@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kakao Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #FEE500;
+            color: #000000;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+        }
+
+        .button:hover {
+            background-color: #F4DC00;
+        }
+
+        #profile, #friends {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+<h1>Kakao Login Demo</h1>
+
+<div>
+    <a href="/authorize" class="button">Login with Kakao</a>
+    <button onclick="getProfile()" class="button">Get Profile</button>
+    <button onclick="sendMessage()" class="button">Send Message</button>
+    <button onclick="logout()" class="button">Logout</button>
+    <button onclick="unlink()" class="button">Unlink</button>
+</div>
+
+<div id="profile"></div>
+<div id="friends"></div>
+
+<script>
+    // Get token from URL and store it
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    if (token) {
+        localStorage.setItem('kakaoToken', token);
+        // Remove token from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    async function getProfile() {
+        const token = localStorage.getItem('kakaoToken');
+        if (!token) {
+            alert('Please login first');
+            return;
+        }
+
+        try {
+            const response = await fetch('/profile', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            document.getElementById('profile').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to get profile');
+        }
+    }
+
+    async function sendMessage() {
+        const token = localStorage.getItem('kakaoToken');
+        if (!token) {
+            alert('Please login first');
+            return;
+        }
+
+        try {
+            const response = await fetch('/message', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            alert('Message sent successfully');
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to send message');
+        }
+    }
+
+    async function logout() {
+        const token = localStorage.getItem('kakaoToken');
+        if (!token) {
+            alert('Please login first');
+            return;
+        }
+
+        try {
+            const response = await fetch('/logout', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            localStorage.removeItem('kakaoToken');
+            alert('Logged out successfully');
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to logout');
+        }
+    }
+
+    async function unlink() {
+        const token = localStorage.getItem('kakaoToken');
+        if (!token) {
+            alert('Please login first');
+            return;
+        }
+
+        try {
+            const response = await fetch('/unlink', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            localStorage.removeItem('kakaoToken');
+            alert('Unlinked successfully');
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to unlink');
+        }
+    }
+</script>
+</body>
+
+</html>
