@@ -8,6 +8,7 @@ export default defineConfig({
     host: true,
     allowedHosts: [
       'areono.store'
+
     ]
   }
 })
