@@ -4,37 +4,49 @@
   bottom: 60px;
   left: 0;
   right: 0;
-  display: flex;            /* Flexbox 활성화 */
-  flex-direction: column;   /* 세로로 쌓기 */
-  align-items: center;      /* 수평 중앙 정렬 */
-  justify-content: center;  /* 수직 중앙 정렬 */
+  display: flex;                
+  flex-direction: column;       
+  align-items: center;          
+  justify-content: space-between; 
   padding: 1rem;
   background-color: #f9f9f9;
-  }
-  
-  .imageWrapper {
-    text-align: center;
-    margin-top: 2rem;
-  }
-  
-  .mainImage {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-  }
-  
-  .title {
-    text-align: center;
-    font-size: 1.2rem;
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
-    color:#AFD77E;
-  }
-  
-  .description {
-    text-align: center;
-    line-height: 1.4;
-    color: #666;
-    font-size: 0.9rem;
-  }
-  
+}
+
+.imageWrapper {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.mainImage {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+}
+
+.title {
+  text-align: center;
+  font-size: 1.2rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #AFD77E;
+}
+
+.description {
+  text-align: center;
+  line-height: 1.4;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* 요리시작 버튼 */
+.startButton {
+  width: 180px;
+  height: 48px;
+  background-color: #64C826;
+  border: none;
+  border-radius: 30px;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}

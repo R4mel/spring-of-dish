@@ -1,4 +1,4 @@
-// Header.jsx
+// src/components/Header/Header.jsx
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './Header.module.css';
@@ -6,8 +6,6 @@ import styles from './Header.module.css';
 function Header() {
   const location = useLocation();
   const navigate = useNavigate();
-
-  // 경로에 따라 헤더의 제목, 버튼 등을 달리 표시
   const pathname = location.pathname;
 
   if (pathname === '/') {
@@ -31,31 +29,37 @@ function Header() {
           className={styles.leftButton}
           onClick={() => navigate('/')}
         >
-          {/* 뒤로가기 아이콘 이미지 (파일 경로는 상황에 맞게 조정) */}
-          <img
-            src="/assets/reply.png"
-            alt="뒤로가기"
-            className={styles.backIcon}
-          />
+          ←
         </button>
         <h2 className={styles.centerTitle}>재료 추가</h2>
-        {/* 오른쪽 영역 자리 채우기용 빈 요소 (타이틀 중앙 정렬 유지) */}
+        <div className={styles.rightPlaceholder}></div>
+      </header>
+    );
+  } else if (pathname === '/fridge') {
+    // 3) 냉장고 페이지: 뒤로가기 → 재료 추가
+    return (
+      <header className={styles.header}>
+        <button
+          className={styles.leftButton}
+          onClick={() => navigate('/ingredient')}
+        >
+          ←
+        </button>
+        <h2 className={styles.centerTitle}>냉장고 앱</h2>
         <div className={styles.rightPlaceholder}></div>
       </header>
     );
   } else if (pathname === '/recipe') {
-    // 3) 요리 보기 페이지
+    // 4) 요리 보기 페이지
     return (
       <header className={styles.header}>
-        {/* 왼쪽 뒤로가기 버튼 */}
         <button
           className={styles.leftButton}
-          onClick={() => navigate(-1)} // 이전 페이지로
+          onClick={() => navigate(-1)}
         >
           ←
         </button>
         <h2 className={styles.centerTitle}>요리 보기</h2>
-        {/* 오른쪽 + 아이콘 */}
         <button
           className={styles.rightButton}
           onClick={() => navigate('/ingredient')}
@@ -65,7 +69,7 @@ function Header() {
       </header>
     );
   } else {
-    // 그 외 경로 (예: 404나 다른 페이지)
+    // 그 외 경로
     return (
       <header className={styles.header}>
         <h2 className={styles.centerTitle}>냉장고 앱</h2>

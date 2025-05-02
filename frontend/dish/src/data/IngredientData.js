@@ -1,11 +1,9 @@
-
-// ingredientsData.js
 const INGREDIENTS_DATA = {
-    "계란류": [
+  계란류: [
     { name: "계란", icon: "/assets/icons/egg_1/egg.png" },
-    { name: "메추리알", icon: "/assets/icons/egg_1/a_quail_egg.png" }
+    { name: "메추리알", icon: "/assets/icons/egg_1/a_quail_egg.png" },
   ],
-    "곡물": [
+  곡물: [
     { name: "감자", icon: "/assets/icons/grain/potato.png" },
     { name: "고구마", icon: "/assets/icons/grain/sweet_potato.png" },
     { name: "누룽지", icon: "/assets/icons/grain/rice.png" },
@@ -16,31 +14,31 @@ const INGREDIENTS_DATA = {
     { name: "오트밀", icon: "/assets/icons/grain/oatmeal.png" },
     { name: "찹쌀가루", icon: "/assets/icons/grain/flour.png" },
   ],
-    "과일": [
-      { name: "감", icon: "/assets/icons/fruit/persimmon.png" },
-      { name: "건포도", icon: "/assets/icons/fruit/raisin.png" },
-      { name: "귤", icon: "/assets/icons/fruit/mandarin.png" },
-      { name: "딸기", icon: "/assets/icons/fruit/strawberry.png" },
-      { name: "라임", icon: "/assets/icons/fruit/lime.png" },
-      { name: "레몬", icon: "/assets/icons/fruit/lemon.png" },
-      { name: "망고", icon: "/assets/icons/fruit/mango.png" },
-      { name: "멜론", icon: "/assets/icons/fruit/melon.png" },
-      { name: "바나나", icon: "/assets/icons/fruit/banana.png" },
-      { name: "배", icon: "/assets/icons/fruit/pear.png" },
-      { name: "복숭아", icon: "/assets/icons/fruit/peach.png" },
-      { name: "블루베리", icon: "/assets/icons/fruit/blueberry.png" },
-      { name: "사과", icon: "/assets/icons/fruit/apple.png" },
-      { name: "수박", icon: "/assets/icons/fruit/watermelon.png" },
-      { name: "아보카도", icon: "/assets/icons/fruit/avocado.png" },
-      { name: "오렌지", icon: "/assets/icons/fruit/orange.png" },
-      { name: "자두", icon: "/assets/icons/fruit/plum.png" },
-      { name: "자몽", icon: "/assets/icons/fruit/grapefruit.png" },
-      { name: "체리", icon: "/assets/icons/fruit/cherry.png" },
-      { name: "키위", icon: "/assets/icons/fruit/kiwi.png" },
-      { name: "파인애플", icon: "/assets/icons/fruit/pineapple.png" },
-      { name: "포도", icon: "/assets/icons/fruit/grape.png" },
-    ],
-    "채소": [
+  과일: [
+    { name: "감", icon: "/assets/icons/fruit/persimmon.png" },
+    { name: "건포도", icon: "/assets/icons/fruit/raisin.png" },
+    { name: "귤", icon: "/assets/icons/fruit/mandarin.png" },
+    { name: "딸기", icon: "/assets/icons/fruit/strawberry.png" },
+    { name: "라임", icon: "/assets/icons/fruit/lime.png" },
+    { name: "레몬", icon: "/assets/icons/fruit/lemon.png" },
+    { name: "망고", icon: "/assets/icons/fruit/mango.png" },
+    { name: "멜론", icon: "/assets/icons/fruit/melon.png" },
+    { name: "바나나", icon: "/assets/icons/fruit/banana.png" },
+    { name: "배", icon: "/assets/icons/fruit/pear.png" },
+    { name: "복숭아", icon: "/assets/icons/fruit/peach.png" },
+    { name: "블루베리", icon: "/assets/icons/fruit/blueberry.png" },
+    { name: "사과", icon: "/assets/icons/fruit/apple.png" },
+    { name: "수박", icon: "/assets/icons/fruit/watermelon.png" },
+    { name: "아보카도", icon: "/assets/icons/fruit/avocado.png" },
+    { name: "오렌지", icon: "/assets/icons/fruit/orange.png" },
+    { name: "자두", icon: "/assets/icons/fruit/plum.png" },
+    { name: "자몽", icon: "/assets/icons/fruit/grapefruit.png" },
+    { name: "체리", icon: "/assets/icons/fruit/cherry.png" },
+    { name: "키위", icon: "/assets/icons/fruit/kiwi.png" },
+    { name: "파인애플", icon: "/assets/icons/fruit/pineapple.png" },
+    { name: "포도", icon: "/assets/icons/fruit/grape.png" },
+  ],
+  채소: [
     { name: "가지", icon: "/assets/icons/vegetable/eggplant.png" },
     { name: "고추", icon: "/assets/icons/vegetable/chili_pepper.png" },
     { name: "깻잎", icon: "/assets/icons/vegetable/sesame_leaf.png" },
@@ -68,15 +66,15 @@ const INGREDIENTS_DATA = {
     { name: "토마토", icon: "/assets/icons/vegetable/tomato.png" },
     { name: "파프리카", icon: "/assets/icons/vegetable/paprika.png" },
     { name: "호박", icon: "/assets/icons/vegetable/pumpkin.png" },
-    ],
-    "빵/떡": [
+  ],
+  "빵/떡": [
     { name: "가래떡", icon: "/assets/icons/bread/tteok.png" },
     { name: "떡국떡", icon: "/assets/icons/bread/tteok.png" },
     { name: "바게트", icon: "/assets/icons/bread/baguette.png" },
     { name: "베이글", icon: "/assets/icons/bread/bagle.png" },
     { name: "식빵", icon: "/assets/icons/bread/bread.png" },
-    ],
-    "면": [
+  ],
+  면: [
     { name: "당면", icon: "/assets/icons/noodle/noodle.png" },
     { name: "라면", icon: "/assets/icons/noodle/ramen.png" },
     { name: "소면", icon: "/assets/icons/noodle/noodle.png" },
@@ -85,22 +83,22 @@ const INGREDIENTS_DATA = {
     { name: "중화면", icon: "/assets/icons/noodle/chinese_noodle.png" },
     { name: "칼국수", icon: "/assets/icons/noodle/kalguksu.png" },
     { name: "파스타", icon: "/assets/icons/noodle/pasta.png" },
-    ],
-    "유제품": [
+  ],
+  유제품: [
     { name: "버터", icon: "/assets/icons/dairy_product/butter.png" },
     { name: "생크림", icon: "/assets/icons/dairy_product/cream.png" },
     { name: "요거트", icon: "/assets/icons/dairy_product/yogurt.png" },
     { name: "우유", icon: "/assets/icons/dairy_product/milk.png" },
     { name: "치즈", icon: "/assets/icons/dairy_product/cheese.png" },
-    ],
-    "육류": [
+  ],
+  육류: [
     { name: "닭고기", icon: "/assets/icons/meat/chicken.png" },
     { name: "돼지고기", icon: "/assets/icons/meat/pig.png" },
     { name: "소고기", icon: "/assets/icons/meat/cow.png" },
     { name: "양고기", icon: "/assets/icons/meat/sheep.png" },
     { name: "오리고기", icon: "/assets/icons/meat/sheep.png" },
-    ],
-    "콩/견과류": [
+  ],
+  "콩/견과류": [
     { name: "검은콩", icon: "/assets/icons/bean/black_bean.png" },
     { name: "땅콩", icon: "/assets/icons/bean/bean.png" },
     { name: "병아리", icon: "/assets/icons/bean/green_bean.png" },
@@ -109,14 +107,14 @@ const INGREDIENTS_DATA = {
     { name: "팥", icon: "/assets/icons/bean/red_bean.png" },
     { name: "피스타치오", icon: "/assets/icons/bean/bean.png" },
     { name: "호두", icon: "/assets/icons/bean/bean.png" },
-    ],
-    "젓갈류": [
+  ],
+  젓갈류: [
     { name: "낙지젓", icon: "/assets/icons/salt_fish/octopus.png" },
     { name: "명란젓", icon: "/assets/icons/salt_fish/roe.png" },
     { name: "새우젓", icon: "/assets/icons/salt_fish/shrimp.png" },
     { name: "오징어젓", icon: "/assets/icons/salt_fish/squid.png" },
-    ],
-    "조미료": [
+  ],
+  조미료: [
     { name: "간장", icon: "/assets/icons/seasoning/sauce.png" },
     { name: "굴소스", icon: "/assets/icons/seasoning/sauce.png" },
     { name: "고추장", icon: "/assets/icons/seasoning/red_sauce.png" },
@@ -159,8 +157,8 @@ const INGREDIENTS_DATA = {
     { name: "후추", icon: "/assets/icons/seasoning/salt.png" },
     { name: "핫소스", icon: "/assets/icons/seasoning/hotsauce.png" },
     { name: "훠궈소스", icon: "/assets/icons/seasoning/hotsauce.png" },
-    ],
-    "해산물": [
+  ],
+  해산물: [
     { name: "갈치", icon: "/assets/icons/fish/fish.png" },
     { name: "고등어", icon: "/assets/icons/fish/fish.png" },
     { name: "꽁치", icon: "/assets/icons/fish/fish.png" },
@@ -191,8 +189,8 @@ const INGREDIENTS_DATA = {
     { name: "쭈꾸미", icon: "/assets/icons/fish/octopus.png" },
     { name: "전복", icon: "/assets/icons/fish/ggomak.png" },
     { name: "홍합", icon: "/assets/icons/fish/honghab.png" },
-    ],
-    "기타가공": [
+  ],
+  기타가공: [
     { name: "김치", icon: "/assets/icons/gita/gimchi.png" },
     { name: "두부", icon: "/assets/icons/gita/dubu.png" },
     { name: "베이컨", icon: "/assets/icons/gita/sausage.png" },
@@ -202,16 +200,15 @@ const INGREDIENTS_DATA = {
     { name: "진미채", icon: "/assets/icons/gita/jinmichae.png" },
     { name: "참치캔", icon: "/assets/icons/gita/spam.png" },
     { name: "스팸", icon: "/assets/icons/gita/spam.png" },
-    ],
-    "냉동식품": [
+  ],
+  냉동식품: [
     { name: "감자튀김", icon: "/assets/icons/ice/fry.png" },
     { name: "냉동만두", icon: "/assets/icons/ice/mandu.png" },
     { name: "냉동치킨너겟", icon: "/assets/icons/ice/chicken.png" },
     { name: "돈까스", icon: "/assets/icons/ice/fork.png" },
     { name: "해물믹스", icon: "/assets/icons/ice/fish.png" },
-    ]
-    // 다른 카테고리 데이터도 추가 가능
-  };
-  
-  export default INGREDIENTS_DATA;
-  
+  ],
+  // 다른 카테고리 데이터도 추가 가능
+};
+
+export default INGREDIENTS_DATA;

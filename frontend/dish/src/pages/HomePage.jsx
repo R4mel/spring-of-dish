@@ -1,8 +1,7 @@
-
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import IngredientItem from '../components/IngredientItem/IngredientItem';
-import ingredientsData from '../data/IngredientData';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import IngredientItem from "../components/IngredientItem/IngredientItem";
+import ingredientsData from "../data/IngredientData";
 
 export default function HomePage() {
   const [selectedItems, setSelectedItems] = useState([]);
@@ -15,7 +14,7 @@ export default function HomePage() {
   };
 
   const handleApply = () => {
-    navigate('/fridge', { state: { fridgeItems: selectedItems } });
+    navigate("/fridge", { state: { fridgeItems: selectedItems } });
   };
 
   return (
