@@ -7,7 +7,6 @@ function Header() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // 경로에 따라 헤더의 제목, 버튼 등을 달리 표시
   const pathname = location.pathname;
 
   if (pathname === '/') {
@@ -43,16 +42,39 @@ function Header() {
         <div className={styles.rightPlaceholder}></div>
       </header>
     );
+  } else if (pathname === '/fridge') {
+    // 3) 냉장고 페이지
+    return (
+      <header className={styles.header}>
+        <button
+          className={styles.leftButton}
+          onClick={() => navigate('/ingredient')}
+        >
+          <img
+            src="/assets/reply.png"
+            alt="뒤로가기"
+            className={styles.backIcon}
+          />
+        </button>
+        <h2 className={styles.centerTitle}>냉장고 앱</h2>
+        <div className={styles.rightPlaceholder}></div>
+      </header>
+    );
   } else if (pathname === '/recipe') {
-    // 3) 요리 보기 페이지
+    // 4 ) 요리 보기 페이지
     return (
       <header className={styles.header}>
         {/* 왼쪽 뒤로가기 버튼 */}
         <button
           className={styles.leftButton}
-          onClick={() => navigate(-1)} // 이전 페이지로
+          onClick={() => navigate('/fridge')}
         >
-          ←
+          {/* 뒤로가기 아이콘 이미지 (파일 경로는 상황에 맞게 조정) */}
+          <img
+            src="/assets/reply.png"
+            alt="뒤로가기"
+            className={styles.backIcon}
+          />
         </button>
         <h2 className={styles.centerTitle}>요리 보기</h2>
         {/* 오른쪽 + 아이콘 */}

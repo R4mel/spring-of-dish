@@ -1,7 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './MainContent.module.css';
 
 function MainContent() {
+  const navigate = useNavigate();
   return (
     <main className={styles.main}>
       <div className={styles.imageWrapper}>
@@ -17,6 +19,14 @@ function MainContent() {
         냉장고에 재료를 추가하고 <br />
         레시피를 추천 받아보세요!
       </p>
+
+      {/* 요리시작 버튼 */}
+      <button
+        className={styles.startButton}
+        onClick={() => navigate('/recipe')}
+      >
+        요리시작
+      </button>
     </main>
   );
 }
