@@ -1,5 +1,5 @@
-import React from 'react';
-import styles from './BottomNav.module.css';
+import React from "react";
+import styles from "./BottomNav.module.css";
 
 function BottomNav() {
   return (

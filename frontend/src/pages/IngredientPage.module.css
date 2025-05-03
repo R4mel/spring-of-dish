@@ -15,7 +15,6 @@
   justify-content: space-between;
   background-color: #8cc63f; /* 피그마 시안의 연녹색에 가까운 값 */
   padding: 16px;
-
 }
 
 .topBarTitle {
@@ -42,9 +41,9 @@
   font-size: 16px;
   border-radius: 4px;
   border: 1px solid #8cc63f;
-  background-color: #fff;    /* 배경 흰색 */
-  color: black;            /* 텍스트 연녹색 */
-  outline: none;             /* 포커스 아웃라인 제거 */
+  background-color: #fff; /* 배경 흰색 */
+  color: black; /* 텍스트 연녹색 */
+  outline: none; /* 포커스 아웃라인 제거 */
   box-sizing: border-box;
 }
 
@@ -75,7 +74,7 @@
 }
 
 .categoryTitle {
-  color: #8cc63f;  /* 연녹색 텍스트 */
+  color: #8cc63f; /* 연녹색 텍스트 */
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 8px;
@@ -101,7 +100,7 @@
   color: #333;
   cursor: pointer;
   transition: background-color 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .ingredientItem:hover {
@@ -128,16 +127,16 @@
 /* 4) 적용하기 버튼 */
 .applyBtn {
   position: fixed;
-  bottom: 80px;               /* 네비게이션 바로 위 */
+  bottom: 80px; /* 네비게이션 바로 위 */
   left: 50%;
   transform: translateX(-50%);
-  width: 20%;                 /* 화면 너비의 90% */
-  max-width: 400px;           /* 최대 400px */
-  padding: 12px 0;            /* 좌우 패딩 제거, 상하만 */
+  width: 20%; /* 화면 너비의 90% */
+  max-width: 400px; /* 최대 400px */
+  padding: 12px 0; /* 좌우 패딩 제거, 상하만 */
   background-color: #68b036;
   color: #fff;
   border: none;
-  border-radius: 24px;        /* 더 둥글게 */
+  border-radius: 24px; /* 더 둥글게 */
   font-size: 16px;
   cursor: pointer;
   z-index: 10;

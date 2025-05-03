@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
-import styles from './IngredientPage.module.css';
-import INGREDIENTS_DATA from '../data/IngredientData';
-import { useNavigate } from 'react-router-dom';  // 네비게이트 가져오기
-
-
+import React, { useState } from "react";
+import styles from "./IngredientPage.module.css";
+import INGREDIENTS_DATA from "../data/IngredientData";
+import { useNavigate } from "react-router-dom"; // 네비게이트 가져오기
 
 export default function IngredientPage() {
   const navigate = useNavigate();
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
 
   // 검색어 입력 변경
@@ -19,23 +17,27 @@ export default function IngredientPage() {
   // 재료 선택/해제
   const toggleItem = (ingredient) => {
     if (selectedItems.find((item) => item.name === ingredient.name)) {
-      setSelectedItems((prev) => prev.filter((item) => item.name !== ingredient.name));
+      setSelectedItems((prev) =>
+        prev.filter((item) => item.name !== ingredient.name)
+      );
     } else {
       setSelectedItems((prev) => [...prev, ingredient]);
     }
   };
 
   // 카테고리별 검색 필터
-  const filteredCategories = Object.entries(INGREDIENTS_DATA).map(([category, items]) => {
-    const filteredItems = items.filter((item) =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    return { category, items: filteredItems };
-  });
+  const filteredCategories = Object.entries(INGREDIENTS_DATA).map(
+    ([category, items]) => {
+      const filteredItems = items.filter((item) =>
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      return { category, items: filteredItems };
+    }
+  );
 
   // 적용하기 버튼 클릭
   const handleApply = () => {
-    console.log('선택된 재료:', selectedItems); // 콘솔 확인용
+    console.log("선택된 재료:", selectedItems); // 콘솔 확인용
 
     navigate("/fridge", { state: { selectedIngredients: selectedItems } });
     // TODO: 다음 단계 이동 or API 전송
@@ -44,7 +46,6 @@ export default function IngredientPage() {
   return (
     <div className={styles.pageContainer}>
       {/* 상단 바 */}
-      
 
       {/* 검색 인풋 */}
       <div className={styles.searchBox}>
@@ -56,23 +57,22 @@ export default function IngredientPage() {
           className={styles.searchInput}
         />
       </div>
-       
-       {/* 선택된 재료(장바구니) 표시*/}
-       {selectedItems.length > 0 && (
+
+      {/* 선택된 재료(장바구니) 표시*/}
+      {selectedItems.length > 0 && (
         <div className={styles.selectedList}>
-            {selectedItems.map((item) => (
-          <span
-            key={item.name}
-            className={styles.selectedTag}
-            onClick={() => toggleItem(item)}
-          >
-            {item.name} ✕
-          </span>
-        ))}
-      </div>
-    )}
-    
-    
+          {selectedItems.map((item) => (
+            <span
+              key={item.name}
+              className={styles.selectedTag}
+              onClick={() => toggleItem(item)}
+            >
+              {item.name} ✕
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* 카테고리 목록 */}
       <div className={styles.categoryWrapper}>
         {filteredCategories.map(({ category, items }) => {
@@ -86,7 +86,9 @@ export default function IngredientPage() {
                     key={ingredient.name}
                     onClick={() => toggleItem(ingredient)}
                     className={
-                      selectedItems.find((item) => item.name === ingredient.name)
+                      selectedItems.find(
+                        (item) => item.name === ingredient.name
+                      )
                         ? `${styles.ingredientItem} ${styles.active}`
                         : styles.ingredientItem
                     }
@@ -96,7 +98,9 @@ export default function IngredientPage() {
                       alt={ingredient.name}
                       className={styles.ingredientIcon}
                     />
-                    <span className={styles.ingredientName}>{ingredient.name}</span>
+                    <span className={styles.ingredientName}>
+                      {ingredient.name}
+                    </span>
                   </button>
                 ))}
               </div>
