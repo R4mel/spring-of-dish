@@ -129,6 +129,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "kakao_id": user.kakao_id,
             "nickname": user.nickname,
             "profile_image": user.profile_image,
+            "created_at": user.created_at,
             "kakao_access_token": payload.get("kakao_access_token", "")
         }
     except jwt.JWTError:
@@ -339,12 +340,11 @@ async def get_user_ingredients(
             IngredientResponse(
                 id=ing.id,
                 name=ing.name,
-                quantity=ing.quantity,
                 category=ing.category,
                 added_date=ing.added_date,
                 limit_date=ing.limit_date,
-                is_expired=ing.is_expired(),
-                days_until_expiry=ing.days_until_expiry()
+                is_expired=ing.is_expired,
+                days_until_expiry=ing.days_until_expiry
             )
             for ing in ingredients
         ]
@@ -607,16 +607,13 @@ async def add_ingredient(
 ):
     """새로운 재료를 추가합니다."""
     try:
-        new_ingredient = Ingredient(
-            kakao_id=current_user["kakao_id"],
+        new_ingredient = Ingredient.create(
+            db=db,
             name=ingredient.name,
-            quantity=ingredient.quantity,
             category=ingredient.category,
-            limit_date=ingredient.limit_date
+            added_date=ingredient.added_date,
+            kakao_id=current_user["kakao_id"]
         )
-        db.add(new_ingredient)
-        db.commit()
-        db.refresh(new_ingredient)
         return new_ingredient
     except Exception as e:
         db.rollback()

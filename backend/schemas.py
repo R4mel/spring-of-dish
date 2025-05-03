@@ -25,18 +25,17 @@ class UserResponse(BaseSchema):
     nickname: str
     profile_image: str
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
 
 class IngredientCreate(BaseSchema):
     name: str
-    quantity: str
     category: str
-    limit_date: datetime
+    added_date: datetime
 
 
 class IngredientUpdate(BaseSchema):
     name: Optional[str] = None
-    quantity: Optional[str] = None
     category: Optional[str] = None
     limit_date: Optional[datetime] = None
 
@@ -44,7 +43,6 @@ class IngredientUpdate(BaseSchema):
 class IngredientResponse(BaseSchema):
     id: int
     name: str
-    quantity: str
     category: str
     added_date: datetime
     limit_date: datetime
@@ -87,14 +85,6 @@ class StarBase(BaseModel):
 
 class StarCreate(StarBase):
     pass
-
-
-class UserResponse(BaseSchema):
-    kakao_id: int
-    nickname: str
-    profile_image: str
-    created_at: datetime
-    updated_at: datetime
 
 
 class RecipeResponse(BaseSchema):

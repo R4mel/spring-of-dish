@@ -66,7 +66,6 @@ class Ingredient(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(VARCHAR(255), index=True)
-    quantity = Column(VARCHAR(50))  # 수량 (예: "2개", "300g", "1컵")
     category = Column(VARCHAR(50))  # 카테고리 (예: "채소", "육류", "조미료")
     added_date = Column(DateTime, default=datetime.datetime.now)
     limit_date = Column(DateTime)
@@ -74,9 +73,11 @@ class Ingredient(Base):
 
     user = relationship("User", back_populates="ingredients")
 
+    @property
     def is_expired(self):
         return datetime.datetime.now() > self.limit_date
 
+    @property
     def days_until_expiry(self):
         return (self.limit_date - datetime.datetime.now()).days
 
@@ -84,21 +85,20 @@ class Ingredient(Base):
         return {
             "id": self.id,
             "name": self.name,
-            "quantity": self.quantity,
             "category": self.category,
             "added_date": self.added_date.isoformat(),
             "limit_date": self.limit_date.isoformat(),
-            "is_expired": self.is_expired(),
-            "days_until_expiry": self.days_until_expiry()
+            "is_expired": self.is_expired,
+            "days_until_expiry": self.days_until_expiry
         }
 
     @classmethod
-    def create(cls, db, name, quantity, category, limit_date, kakao_id):
+    def create(cls, db, name, category, added_date, kakao_id):
         ingredient = cls(
             name=name,
-            quantity=quantity,
             category=category,
-            limit_date=limit_date,
+            added_date=added_date,
+            limit_date=added_date + datetime.timedelta(days=15),
             kakao_id=kakao_id
         )
         db.add(ingredient)
