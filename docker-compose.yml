@@ -1,24 +1,17 @@
 version: '3.9'
 
 services:
-  # mariadb:
-  #   image: mariadb:latest
-  #   container_name: spring-db
-  #   restart: always
-  #   environment:
-  #     MARIADB_ROOT_PASSWORD: rootpassword
-  #     MARIADB_DATABASE: mydatabase
-  #     MARIADB_USER: root
-  #     MARIADB_PASSWORD: rootpassword
-  #   ports:
-  #     - "3306:3306"
-  #   volumes:
-  #     - mariadb_data:/var/lib/mysql
-  #   healthcheck:
-  #     test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-prootpassword"]
-  #     interval: 5s
-  #     timeout: 5s
-  #     retries: 10
+  db:
+      image: mariadb:11
+      container_name: spring-db
+      restart: always
+      environment:
+        MYSQL_ROOT_PASSWORD: rootpassword
+        MYSQL_DATABASE: dish_db
+        MYSQL_USER: dish_user
+        MYSQL_PASSWORD: dishpass
+      volumes:
+        - mariadb_data:/var/lib/mysql
 
   backend:
       build:
@@ -29,10 +22,9 @@ services:
       ports:
         - "8000:8000"
       # depends_on:
-      #   mariadb:
-      #     condition: service_healthy
+      #   - db
       # environment:
-      #   - DATABASE_URL=mysql+pymysql://root:rootpassword@mariadb:3306/mydatabase
+      #   - DATABASE_URL=mysql+pymysql://dish_user:dishpass@db:3306/dish_db
       volumes:
         - ./backend:/app
 
@@ -47,3 +39,5 @@ services:
 
 volumes:
   mariadb_data:
+networks:
+  spring-network:

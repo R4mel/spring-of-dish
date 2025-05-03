@@ -31,6 +31,7 @@ class UserOut(BaseModel):
 
 class UserCreate(BaseModel):
     nickname: str
+
 KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
 KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
 KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI")
@@ -264,14 +265,19 @@ def create_users(user: UserCreate, db: Session = Depends(get_db)):
     de.refresh(new_user)
     return new_user
       
+@app.get("/ingredient")
+def get_ingredient():
+    return
+
 @app.get("/menu")
-def menu():
+def get_menu():
 
     return 
-@app.get("/ingredient")
+
+
 @app.get("/recipe")
-def recipe():
+def get_recipe():
     return 
 app.get("/refrige")
-def refrige():
+def get_refrige():
     return
