@@ -1,18 +1,39 @@
-from sqlalchemy import Column, Integer, ForeignKey, func, VARCHAR, Table, DateTime
+from sqlalchemy import Column, Integer, ForeignKey, func, VARCHAR, Table, DateTime, Text, Boolean, BigInteger
 from sqlalchemy.orm import relationship
 
 from database import Base
 
 
-class User(Base):
-    __tablename__ = "users"
+class Recipe(Base):
+    __tablename__ = "recipes"
 
-    user_no = Column(Integer, primary_key=True, index=True, autoincrement=True)  # 내부 사용자 ID
-    nickname = Column(VARCHAR(100), nullable=False)  # 카카오에서 제공된 이름
-    register_date = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(VARCHAR(255), nullable=False)  # 레시피 제목
+    subtitle = Column(VARCHAR(255))  # 레시피 부제목
+    youtube_link = Column(VARCHAR(255), nullable=False)  # 유튜브 링크
+    steps = Column(Text, nullable=False)  # 요리 단계 (JSON 형식으로 저장)
+    ingredients = Column(Text, nullable=False)  # 재료 목록 (JSON 형식으로 저장)
+    seasonings = Column(Text, nullable=False)  # 양념 목록 (JSON 형식으로 저장)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    is_saved = Column(Boolean, default=False)  # 사용자가 저장한 레시피인지 여부
+    saved_by = Column(BigInteger, nullable=True)  # 저장한 사용자의 카카오 ID
 
-    # 사용자가 Star를 표시한 레시피와의 관계
-    stars = relationship("Star", back_populates="user")
+    # 사용자가 관심 표시한 정보와의 관계
+    stars = relationship("Star", back_populates="recipe")
+    # 재료와의 관계
+    ingredients_rel = relationship("Ingredient", secondary="recipe_ingredient_association", back_populates="recipes")
+
+
+class Star(Base):
+    __tablename__ = "stars"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kakao_id = Column(Integer, nullable=False, index=True)  # 카카오 ID
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False)  # 레시피 ID
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    # 레시피와의 관계
+    recipe = relationship("Recipe", back_populates="stars")
 
 
 class Ingredient(Base):
@@ -24,37 +45,7 @@ class Ingredient(Base):
     limit_date = Column(DateTime(timezone=True), nullable=False)
 
     # 레시피와 재료 간의 다대다 관계를 설정
-    recipes = relationship("Recipe", secondary="recipe_ingredient_association", back_populates="ingredients")
-
-
-class Recipe(Base):
-    __tablename__ = "recipes"
-
-    id = Column(Integer, primary_key=True, index=True)  # 레시피 ID
-    title = Column(VARCHAR(255), nullable=False)  # 레시피 제목
-    cooking_method = Column(VARCHAR(255), nullable=False)  # 요리 방법
-    youtube_video_id = Column(VARCHAR(255), nullable=False)  # 유튜브 영상 ID
-    youtube_url = Column(VARCHAR(255), nullable=False)  # 유튜브 영상 URL
-    youtube_thumbnail_url = Column(VARCHAR(255), nullable=False)  # 유튜브 썸네일
-
-    # 레시피에 필요한 재료와의 관계
-    ingredients = relationship("Ingredient", secondary="recipe_ingredient_association", back_populates="recipes")
-
-    # 사용자가 관심 표시한 정보와의 관계
-    stars = relationship("Star", back_populates="recipe")
-
-
-class Star(Base):
-    __tablename__ = "stars"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_no = Column(Integer, ForeignKey("users.user_no"))  # 사용자 ID
-    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False)  # 레시피 ID
-    count = Column(Integer, nullable=False, default=0)  # 관심 표시 횟수
-
-    # 사용자와 레시피 간의 관계
-    user = relationship("User", back_populates="stars")
-    recipe = relationship("Recipe", back_populates="stars")
+    recipes = relationship("Recipe", secondary="recipe_ingredient_association", back_populates="ingredients_rel")
 
 
 # 레시피와 재료 간의 다대다 관계를 정의하는 중간 테이블

@@ -1,71 +1,35 @@
-from pydantic import BaseModel, EmailStr, HttpUrl, Field
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional, Dict
 
-
-class UserBase(BaseModel):
-    nickname: str = Field(..., max_length=100)
-    kakao_id: int
-    name: str = Field(..., max_length=255)
-    email: EmailStr
-    profile_image: Optional[HttpUrl] = None
-    created_at: datetime
-    modified_at: Optional[datetime] = None
-
-
-class UserCreate(UserBase):
-    pass
-
-
-class UserResponse(UserBase):
-    user_no: int
-    register_date: datetime
-
-    class Config:
-        orm_mode = True
-
-
-class IngredientBase(BaseModel):
-    name: str = Field(..., max_length=255)
-    added_date: datetime
-    limit_date: datetime
-
-
-class IngredientCreate(IngredientBase):
-    pass
-
-
-class IngredientResponse(IngredientBase):
-    id: int
-
-    class Config:
-        orm_mode = True
+from pydantic import BaseModel, Field
 
 
 class RecipeBase(BaseModel):
     title: str = Field(..., max_length=255)
-    cooking_method: str = Field(..., max_length=255)
-    youtube_video_id: str = Field(..., max_length=255)
-    youtube_url: str
-    youtube_thumbnail_url: str
+    subtitle: Optional[str] = Field(None, max_length=255)
+    youtube_link: str
+    steps: List[str]  # 요리 단계
+    ingredients: List[Dict[str, str]]  # 재료 목록 (name, iconUrl)
+    seasonings: List[Dict[str, str]]  # 양념 목록 (name, iconUrl)
 
 
 class RecipeCreate(RecipeBase):
-    ingredient_ids: List[int]
+    pass
 
 
 class RecipeResponse(RecipeBase):
     id: int
-    ingredients: List[IngredientResponse]
+    created_at: datetime
+    is_saved: bool = False
+    saved_by: Optional[int] = None
 
     class Config:
         orm_mode = True
 
 
 class StarBase(BaseModel):
-    user_no: int
+    kakao_id: int
     recipe_id: int
-    count: int = Field(0, ge=0)
 
 
 class StarCreate(StarBase):
@@ -74,6 +38,7 @@ class StarCreate(StarBase):
 
 class StarResponse(StarBase):
     id: int
+    created_at: datetime
 
     class Config:
         orm_mode = True

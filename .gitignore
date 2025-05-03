@@ -8,4 +8,5 @@ out
 gen
 node_modules/
 .env
-.bak
+__pycache__/
+venv/
