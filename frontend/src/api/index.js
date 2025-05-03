@@ -1,7 +1,6 @@
 const BASE = import.meta.env.VITE_BACKEND_URL || ""; // .env로 설정해두셨다면 그대로 사용
 
 export async function authorize() {
-
   window.location.href = `${BASE}/authorize`;
 }
 
