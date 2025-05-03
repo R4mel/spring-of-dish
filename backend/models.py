@@ -1,57 +1,107 @@
-from sqlalchemy import Column, Integer, ForeignKey, func, VARCHAR, Table, DateTime, Text, Boolean, BigInteger
+import datetime
+
+from sqlalchemy import Column, Integer, ForeignKey, func, VARCHAR, DateTime, BigInteger, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from database import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    kakao_id = Column(BigInteger, primary_key=True, index=True)
+    nickname = Column(VARCHAR(255))
+    profile_image = Column(VARCHAR(255))
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
+    ingredients = relationship("Ingredient", back_populates="user")
+    stars = relationship("Star", back_populates="user")
 
 
 class Recipe(Base):
     __tablename__ = "recipes"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(VARCHAR(255), nullable=False)  # 레시피 제목
-    subtitle = Column(VARCHAR(255))  # 레시피 부제목
-    youtube_link = Column(VARCHAR(255), nullable=False)  # 유튜브 링크
-    steps = Column(Text, nullable=False)  # 요리 단계 (JSON 형식으로 저장)
-    ingredients = Column(Text, nullable=False)  # 재료 목록 (JSON 형식으로 저장)
-    seasonings = Column(Text, nullable=False)  # 양념 목록 (JSON 형식으로 저장)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    is_saved = Column(Boolean, default=False)  # 사용자가 저장한 레시피인지 여부
-    saved_by = Column(BigInteger, nullable=True)  # 저장한 사용자의 카카오 ID
+    title = Column(VARCHAR(255), nullable=False)
+    subtitle = Column(VARCHAR(255))
+    youtube_link = Column(VARCHAR(255), nullable=False)
+    steps = Column(JSON, nullable=False)  # 요리 단계
+    ingredients = Column(JSON, nullable=False)  # 재료 목록 (name, iconUrl)
+    seasonings = Column(JSON, nullable=False)  # 양념 목록 (name, iconUrl)
+    created_at = Column(DateTime(timezone=True), default=func.now())
 
-    # 사용자가 관심 표시한 정보와의 관계
     stars = relationship("Star", back_populates="recipe")
-    # 재료와의 관계
-    ingredients_rel = relationship("Ingredient", secondary="recipe_ingredient_association", back_populates="recipes")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "subtitle": self.subtitle,
+            "youtube_link": self.youtube_link,
+            "steps": self.steps,
+            "ingredients": self.ingredients,
+            "seasonings": self.seasonings,
+            "created_at": self.created_at
+        }
 
 
 class Star(Base):
     __tablename__ = "stars"
 
     id = Column(Integer, primary_key=True, index=True)
-    kakao_id = Column(Integer, nullable=False, index=True)  # 카카오 ID
-    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False)  # 레시피 ID
+    kakao_id = Column(BigInteger, ForeignKey("users.kakao_id"), nullable=False)
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    # 레시피와의 관계
     recipe = relationship("Recipe", back_populates="stars")
+    user = relationship("User", back_populates="stars")
+
+    __table_args__ = (
+        UniqueConstraint('recipe_id', 'kakao_id', name='uix_recipe_user'),
+    )
 
 
 class Ingredient(Base):
     __tablename__ = "ingredients"
 
-    id = Column(Integer, primary_key=True, index=True)  # 재료 ID
-    name = Column(VARCHAR(255), nullable=False, index=True)  # 재료 이름
-    added_date = Column(DateTime(timezone=True), nullable=False)
-    limit_date = Column(DateTime(timezone=True), nullable=False)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(VARCHAR(255), index=True)
+    quantity = Column(VARCHAR(50))  # 수량 (예: "2개", "300g", "1컵")
+    category = Column(VARCHAR(50))  # 카테고리 (예: "채소", "육류", "조미료")
+    added_date = Column(DateTime, default=datetime.datetime.now)
+    limit_date = Column(DateTime)
+    kakao_id = Column(BigInteger, ForeignKey("users.kakao_id"))
 
-    # 레시피와 재료 간의 다대다 관계를 설정
-    recipes = relationship("Recipe", secondary="recipe_ingredient_association", back_populates="ingredients_rel")
+    user = relationship("User", back_populates="ingredients")
 
+    def is_expired(self):
+        return datetime.datetime.now() > self.limit_date
 
-# 레시피와 재료 간의 다대다 관계를 정의하는 중간 테이블
-recipe_ingredient_association = Table(
-    "recipe_ingredient_association",
-    Base.metadata,
-    Column("recipe_id", Integer, ForeignKey("recipes.id"), primary_key=True),
-    Column("ingredient_id", Integer, ForeignKey("ingredients.id"), primary_key=True)
-)
+    def days_until_expiry(self):
+        return (self.limit_date - datetime.datetime.now()).days
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "quantity": self.quantity,
+            "category": self.category,
+            "added_date": self.added_date.isoformat(),
+            "limit_date": self.limit_date.isoformat(),
+            "is_expired": self.is_expired(),
+            "days_until_expiry": self.days_until_expiry()
+        }
+
+    @classmethod
+    def create(cls, db, name, quantity, category, limit_date, kakao_id):
+        ingredient = cls(
+            name=name,
+            quantity=quantity,
+            category=category,
+            limit_date=limit_date,
+            kakao_id=kakao_id
+        )
+        db.add(ingredient)
+        db.commit()
+        db.refresh(ingredient)
+        return ingredient
