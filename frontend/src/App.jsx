@@ -8,8 +8,11 @@ import FridgePage from './pages/FridgePage';  // ✨ 꼭 필요
 import RecipePage from './pages/RecipePage';   // ✨ 있으면 가져오고
 
 import Header from './components/Header/Header';
-import BottomNav from './components/BottomNav/BottomNav';
-import MainContent from './components/MainContent/MainContent'; // 홈 메인화면
+import BottomNav from './components/BottomNav/BottomNav'; 
+import LoginPage from './pages/LoginPage';
+import OAuthCallback from './pages/OAuthCallback';
+import MainContent from './components/MainContent/MainContent';
+
 
 function App() {
   return (
@@ -20,10 +23,12 @@ function App() {
 
         {/* 메인 콘텐츠 */}
         <Routes>
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<MainContent />} />            {/* 홈 메인 */}
           <Route path="/ingredient" element={<IngredientPage />} /> {/* 재료 추가 */}
           <Route path="/fridge" element={<FridgePage />} />         {/* 장바구니 페이지 */}
           <Route path="/recipe" element={<RecipePage />} />         {/* 레시피 페이지 */}
+          <Route path="/auth/callback" element={<OAuthCallback />} />
         </Routes>
 
         {/* 하단 네비게이션 */}
