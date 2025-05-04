@@ -1,3 +1,4 @@
+from models import Base, Recipe, Ingredient
 import datetime
 import json
 import os
@@ -16,7 +17,6 @@ from starlette.responses import RedirectResponse, JSONResponse, HTMLResponse
 from starlette.templating import Jinja2Templates
 
 from database import engine, get_db
-from models import Base, Recipe, Ingredient
 
 Base.metadata.create_all(bind=engine)
 
