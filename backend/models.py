@@ -26,8 +26,8 @@ class Recipe(Base):
     subtitle = Column(VARCHAR(255))
     youtube_link = Column(VARCHAR(255), nullable=False)
     steps = Column(JSON, nullable=False)  # 요리 단계
-    ingredients = Column(JSON, nullable=False)  # 재료 목록 (name, iconUrl)
-    seasonings = Column(JSON, nullable=False)  # 양념 목록 (name, iconUrl)
+    ingredients = Column(JSON, nullable=False)  # 재료 목록
+    seasonings = Column(JSON, nullable=False)  # 양념 목록
     created_at = Column(DateTime(timezone=True), default=func.now())
 
     stars = relationship("Star", back_populates="recipe")
@@ -68,7 +68,7 @@ class Ingredient(Base):
     name = Column(VARCHAR(255), index=True)
     category = Column(VARCHAR(50))  # 카테고리 (예: "채소", "육류", "조미료")
     added_date = Column(DateTime, default=datetime.datetime.now)
-    limit_date = Column(DateTime)
+    limit_date = Column(DateTime, nullable=False)
     kakao_id = Column(BigInteger, ForeignKey("users.kakao_id"))
 
     user = relationship("User", back_populates="ingredients")

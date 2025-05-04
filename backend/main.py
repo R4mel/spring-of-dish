@@ -1,15 +1,21 @@
 import datetime
+import functools
 import json
 import os
-from typing import List, Optional
+from typing import List, Any
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt
+from jose import jwt, JWTError
 from openai import OpenAI
+from openai.types.chat import (
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+    ChatCompletionMessageParam
+)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette import status
@@ -22,10 +28,10 @@ from schemas import (
     UserResponse,
     IngredientsResponse,
     RecipeResponse,
-    RecipeCreate,
     IngredientResponse,
     IngredientCreate,
-    IngredientUpdate
+    IngredientUpdate,
+    StarResponse
 )
 
 SQLBase.metadata.create_all(bind=engine)
@@ -41,6 +47,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 http_client = httpx.AsyncClient()
@@ -58,6 +65,63 @@ openai_host = "https://api.openai.com/v1"
 message_template = '{"object_type":"text","text":"Hello, world!","link":{"web_url":"https://developers.kakao.com","mobile_web_url":"https://developers.kakao.com"}}'
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+
+
+def create_jwt_token(data: dict, expires_delta: datetime.timedelta | None = None):
+    to_encode = data.copy()
+    expire = datetime.datetime.now() + (expires_delta or datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def create_error_response(detail: str, status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR) -> HTTPException:
+    """일관된 에러 응답을 생성합니다."""
+    return HTTPException(
+        status_code=status_code,
+        detail=detail
+    )
+
+
+def create_json_response(content: dict, status_code: int = 200) -> JSONResponse:
+    """JSON 응답을 생성합니다."""
+    return JSONResponse(content=content, status_code=status_code)
+
+
+def delete_jwt_cookie(response: JSONResponse) -> JSONResponse:
+    """JWT 쿠키를 삭제합니다."""
+    response.delete_cookie(
+        key="jwt_token",
+        httponly=True,
+        secure=True,
+        samesite="lax"
+    )
+    return response
+
+
+def handle_db_operation(operation: str) -> Any:
+    """데이터베이스 작업을 위한 데코레이터 함수"""
+
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+            except HTTPException:
+                raise
+            except IntegrityError:
+                raise create_error_response(
+                    f"{operation} 중 중복된 데이터가 발견되었습니다",
+                    status.HTTP_400_BAD_REQUEST
+                )
+            except Exception as e:
+                raise create_error_response(
+                    f"{operation} 중 오류가 발생했습니다: {str(e)}"
+                )
+
+        return wrapper
+
+    return decorator
 
 
 async def get_jwt_token(request: Request) -> str:
@@ -83,7 +147,7 @@ async def validate_jwt_token(jwt_token: str) -> dict:
                 detail="Invalid token",
             )
         return payload
-    except jwt.JWTError:
+    except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
@@ -91,11 +155,34 @@ async def validate_jwt_token(jwt_token: str) -> dict:
         )
 
 
+async def get_current_user(
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+        db: Session = Depends(get_db)
+) -> UserResponse:
+    """JWT 토큰을 검증하고 데이터베이스에서 사용자 정보를 조회합니다."""
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        kakao_id = int(payload["sub"].strip("'"))
+
+        user = db.query(User).filter(User.kakao_id == kakao_id).first()
+        if not user:
+            raise create_error_response("User not found", status.HTTP_401_UNAUTHORIZED)
+
+        return UserResponse(
+            kakao_id=int(getattr(user, "kakao_id")),
+            nickname=str(getattr(user, "nickname")),
+            profile_image=str(getattr(user, "profile_image")),
+            created_at=getattr(user, "created_at")
+        )
+    except JWTError:
+        raise create_error_response("Invalid token", status.HTTP_401_UNAUTHORIZED)
+
+
 async def call_kakao_api(endpoint: str, method: str = "POST", data: dict = None) -> dict:
     """카카오 API를 호출합니다."""
     try:
-        async with http_client as client:
-            response = await client.request(
+        async with http_client as ac:
+            response = await ac.request(
                 method=method,
                 url=f"{kapi_host}{endpoint}",
                 headers={"Authorization": f"Bearer {data.get('kakao_access_token')}"},
@@ -110,52 +197,14 @@ async def call_kakao_api(endpoint: str, method: str = "POST", data: dict = None)
         )
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security),
-                           db: Session = Depends(get_db)):
-    """JWT 토큰을 검증하고 데이터베이스에서 사용자 정보를 조회합니다."""
-    try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        kakao_id = int(payload["sub"].strip("'"))
-
-        user = db.query(User).filter(User.kakao_id == kakao_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        return {
-            "kakao_id": user.kakao_id,
-            "nickname": user.nickname,
-            "profile_image": user.profile_image,
-            "created_at": user.created_at,
-            "kakao_access_token": payload.get("kakao_access_token", "")
-        }
-    except jwt.JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-
-def create_jwt_token(data: dict, expires_delta: datetime.timedelta | None = None):
-    to_encode = data.copy()
-    expire = datetime.datetime.now() + (expires_delta or datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
-@app.get("/")
+@app.get("/", response_class=RedirectResponse)
 async def root():
     """루트 경로 접속 시 카카오 로그인 페이지로 리다이렉트"""
     return RedirectResponse(url="/authorize")
 
 
 @app.get("/authorize", response_class=RedirectResponse)
-async def authorize(request: Request):
+async def authorize(request: Request) -> RedirectResponse:
     """카카오 로그인 페이지로 리다이렉트"""
     scope = request.query_params.get("scope")
     scope_param = f"&scope={scope}" if scope else ""
@@ -171,7 +220,8 @@ async def authorize(request: Request):
 
 
 @app.get("/redirect")
-async def redirect(request: Request, db: Session = Depends(get_db)):
+@handle_db_operation("로그인")
+async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONResponse:
     """카카오 로그인 콜백 처리"""
     code = request.query_params.get("code")
     if not code:
@@ -187,8 +237,8 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
         "code": code,
     }
 
-    async with httpx.AsyncClient() as client:
-        token_resp = await client.post(token_url, data=data)
+    async with httpx.AsyncClient() as ac:
+        token_resp = await ac.post(token_url, data=data)
         token_json = token_resp.json()
         access_token = token_json.get("access_token")
 
@@ -196,7 +246,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
             return JSONResponse({"error": "Failed to get access token", "detail": token_json}, status_code=400)
 
         headers = {'Authorization': f'Bearer {access_token}'}
-        profile_resp = await client.get(f"{kapi_host}/v2/user/me", headers=headers)
+        profile_resp = await ac.get(f"{kapi_host}/v2/user/me", headers=headers)
         if profile_resp.status_code != 200:
             return JSONResponse({"error": "Failed to get user profile"}, status_code=400)
 
@@ -229,19 +279,6 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
             "profile_image": profile_image
         })
 
-        # # JWT 토큰을 쿠키에 저장
-        # response = RedirectResponse(url="/")
-        # response.set_cookie(
-        #     key="jwt_token",
-        #     value=jwt_token,
-        #     httponly=True,  # JavaScript에서 접근 불가
-        #     secure=True,  # HTTPS에서만 전송
-        #     samesite="lax",  # CSRF 방지
-        #     max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60  # 토큰 만료 시간과 동일하게 설정
-        # )
-        # return response
-
-        # JWT 토큰을 응답에 포함
         return JSONResponse({
             "message": "Login successful",
             "jwt_token": jwt_token,
@@ -254,35 +291,9 @@ async def redirect(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/profile", response_model=UserResponse)
-async def profile(current_user: dict = Depends(get_current_user)):
+async def profile(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
+    """사용자 프로필 정보를 조회합니다."""
     return current_user
-
-
-def create_json_response(content: dict, status_code: int = 200) -> JSONResponse:
-    """JSON 응답을 생성합니다."""
-    return JSONResponse(content=content, status_code=status_code)
-
-
-def delete_jwt_cookie(response: JSONResponse) -> JSONResponse:
-    """JWT 쿠키를 삭제합니다."""
-    response.delete_cookie(
-        key="jwt_token",
-        httponly=True,
-        secure=True,
-        samesite="lax"
-    )
-    return response
-
-
-@app.get("/message")
-async def message(request: Request):
-    jwt_token = await get_jwt_token(request)
-    payload = await validate_jwt_token(jwt_token)
-    data = {
-        'template_object': message_template,
-        'kakao_access_token': payload.get('kakao_access_token')
-    }
-    return await call_kakao_api("/v2/api/talk/memo/default/send", data=data)
 
 
 @app.post("/logout", response_model=MessageResponse)
@@ -295,118 +306,6 @@ async def logout(request: Request):
 
     response = create_json_response({"message": "Logged out successfully"})
     return delete_jwt_cookie(response)
-
-
-def create_error_response(detail: str, status_code: int = 500) -> HTTPException:
-    """HTTP 예외를 생성합니다."""
-    return HTTPException(
-        status_code=status_code,
-        detail=detail
-    )
-
-
-def get_user_by_kakao_id(db: Session, kakao_id: int) -> Optional[User]:
-    """카카오 ID로 사용자를 조회합니다."""
-    return db.query(User).filter(User.kakao_id == kakao_id).first()
-
-
-def get_recipe_by_id(db: Session, recipe_id: int) -> Optional[Recipe]:
-    """레시피 ID로 레시피를 조회합니다."""
-    return db.query(Recipe).filter(Recipe.id == recipe_id).first()
-
-
-def get_star_by_recipe_and_user(db: Session, recipe_id: int, kakao_id: int) -> Optional[Star]:
-    """레시피와 사용자로 좋아요를 조회합니다."""
-    return db.query(Star).filter(
-        Star.recipe_id == recipe_id,
-        Star.kakao_id == kakao_id
-    ).first()
-
-
-@app.get("/user-ingredients", response_model=IngredientsResponse)
-async def get_user_ingredients(
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    """사용자의 재료 목록을 조회합니다."""
-    try:
-        ingredients = db.query(Ingredient).filter(
-            Ingredient.kakao_id == current_user["kakao_id"],
-            Ingredient.added_date <= datetime.datetime.now(),
-            Ingredient.limit_date >= datetime.datetime.now()
-        ).all()
-
-        ingredient_list = [
-            IngredientResponse(
-                id=ing.id,
-                name=ing.name,
-                category=ing.category,
-                added_date=ing.added_date,
-                limit_date=ing.limit_date,
-                is_expired=ing.is_expired,
-                days_until_expiry=ing.days_until_expiry
-            )
-            for ing in ingredients
-        ]
-        return IngredientsResponse(ingredients=ingredient_list)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"재료 조회 중 오류가 발생했습니다: {str(e)}"
-        )
-
-
-@app.post("/recipes/{recipe_id}/star")
-async def toggle_star(
-        recipe_id: int,
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    """레시피에 좋아요를 토글합니다."""
-    try:
-        # 레시피가 존재하는지 확인
-        recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
-        if not recipe:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="레시피를 찾을 수 없습니다"
-            )
-
-        # 이미 좋아요를 눌렀는지 확인
-        existing_star = db.query(Star).filter(
-            Star.recipe_id == recipe_id,
-            Star.kakao_id == current_user["kakao_id"]
-        ).first()
-
-        if existing_star:
-            # 좋아요 취소
-            db.delete(existing_star)
-            db.commit()
-            return {"message": "좋아요가 취소되었습니다"}
-        else:
-            # 좋아요 추가
-            new_star = Star(
-                recipe_id=recipe_id,
-                kakao_id=current_user["kakao_id"]
-            )
-            db.add(new_star)
-            try:
-                db.commit()
-                return {"message": "좋아요가 추가되었습니다"}
-            except IntegrityError:
-                db.rollback()
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="이미 좋아요를 누른 레시피입니다"
-                )
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"좋아요 처리 중 오류가 발생했습니다: {str(e)}"
-        )
 
 
 @app.post("/unlink", response_model=MessageResponse)
@@ -427,6 +326,225 @@ async def unlink(request: Request, db: Session = Depends(get_db)):
     return delete_jwt_cookie(response)
 
 
+@app.get("/user-ingredients", response_model=IngredientsResponse)
+@handle_db_operation("재료 조회")
+async def get_user_ingredients(
+        current_user: UserResponse = Depends(get_current_user),
+        db: Session = Depends(get_db)
+) -> IngredientsResponse:
+    """사용자의 재료 목록을 조회합니다."""
+    ingredients = db.query(Ingredient).filter(
+        Ingredient.kakao_id == current_user.kakao_id,
+        Ingredient.added_date <= datetime.datetime.now(),
+        Ingredient.limit_date >= datetime.datetime.now()
+    ).all()
+
+    ingredient_list = [
+        IngredientResponse(
+            id=int(getattr(ing, "id")),
+            name=str(getattr(ing, "name")),
+            category=str(getattr(ing, "category")),
+            added_date=getattr(ing, "added_date").isoformat(),
+            limit_date=getattr(ing, "limit_date").isoformat(),
+            is_expired=bool(getattr(ing, "is_expired")),
+            days_until_expiry=int(getattr(ing, "days_until_expiry"))
+        )
+        for ing in ingredients
+    ]
+    return IngredientsResponse(ingredients=ingredient_list)
+
+
+@app.post("/ingredients", response_model=IngredientResponse)
+@handle_db_operation("재료 추가")
+async def add_ingredient(
+        ingredient: IngredientCreate,
+        current_user: UserResponse = Depends(get_current_user),
+        db: Session = Depends(get_db)
+) -> IngredientResponse:
+    """새로운 재료를 추가합니다."""
+    try:
+        new_ingredient = Ingredient.create(
+            db=db,
+            name=ingredient.name,
+            category=ingredient.category,
+            added_date=ingredient.added_date,
+            kakao_id=current_user.kakao_id
+        )
+        db.commit()
+        db.refresh(new_ingredient)  # 데이터베이스에서 생성된 ID를 가져오기 위해 refresh
+
+        return IngredientResponse(
+            id=int(getattr(new_ingredient, "id")),
+            name=str(getattr(new_ingredient, "name")),
+            category=str(getattr(new_ingredient, "category")),
+            added_date=getattr(new_ingredient, "added_date"),
+            limit_date=getattr(new_ingredient, "limit_date"),
+            is_expired=bool(getattr(new_ingredient, "is_expired")),
+            days_until_expiry=int(getattr(new_ingredient, "days_until_expiry"))
+        )
+    except Exception as e:
+        db.rollback()
+        raise create_error_response(
+            f"재료 추가 중 오류가 발생했습니다: {str(e)}",
+            status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@app.put("/ingredients/{ingredient_id}", response_model=IngredientResponse)
+@handle_db_operation("재료 수정")
+async def update_ingredient(
+        ingredient_id: int,
+        ingredient: IngredientUpdate,
+        current_user: UserResponse = Depends(get_current_user),
+        db: Session = Depends(get_db)
+) -> IngredientResponse:
+    """기존 재료 정보를 수정합니다."""
+    existing_ingredient = db.query(Ingredient).filter(
+        Ingredient.id == ingredient_id,
+        Ingredient.kakao_id == current_user.kakao_id
+    ).first()
+    if not existing_ingredient:
+        raise create_error_response("재료를 찾을 수 없습니다", status.HTTP_404_NOT_FOUND)
+
+    for key, value in ingredient.model_dump(exclude_unset=True).items():
+        setattr(existing_ingredient, key, value)
+    db.commit()
+    db.refresh(existing_ingredient)
+
+    return IngredientResponse(
+        id=int(getattr(existing_ingredient, "id")),
+        name=str(getattr(existing_ingredient, "name")),
+        category=str(getattr(existing_ingredient, "category")),
+        added_date=getattr(existing_ingredient, "added_date"),
+        limit_date=getattr(existing_ingredient, "limit_date"),
+        is_expired=bool(getattr(existing_ingredient, "is_expired")),
+        days_until_expiry=int(getattr(existing_ingredient, "days_until_expiry"))
+    )
+
+
+@app.delete("/ingredients/{ingredient_id}", response_model=MessageResponse)
+@handle_db_operation("재료 삭제")
+async def delete_ingredient(
+        ingredient_id: int,
+        current_user: UserResponse = Depends(get_current_user),
+        db: Session = Depends(get_db)
+) -> MessageResponse:
+    """재료를 삭제합니다."""
+    ingredient = db.query(Ingredient).filter(
+        Ingredient.id == ingredient_id,
+        Ingredient.kakao_id == current_user.kakao_id
+    ).first()
+    if not ingredient:
+        raise create_error_response("재료를 찾을 수 없습니다", status.HTTP_404_NOT_FOUND)
+
+    db.delete(ingredient)
+    db.commit()
+    return MessageResponse(message="재료가 삭제되었습니다")
+
+
+@app.get("/recipes", response_model=List[RecipeResponse])
+@handle_db_operation("레시피 조회")
+async def get_recipes(
+        current_user: UserResponse = Depends(get_current_user),
+        db: Session = Depends(get_db)
+) -> List[RecipeResponse]:
+    """사용자가 좋아요를 누른 레시피 목록을 조회합니다."""
+    recipes = db.query(Recipe).join(Star).filter(
+        Star.kakao_id == current_user.kakao_id
+    ).all()
+
+    recipe_list = [
+        RecipeResponse(
+            id=int(getattr(recipe, "id")),
+            title=str(getattr(recipe, "title")),
+            subtitle=str(getattr(recipe, "subtitle")),
+            youtube_link=str(getattr(recipe, "youtube_link")),
+            steps=getattr(recipe, "steps"),
+            ingredients=getattr(recipe, "ingredients"),
+            seasonings=getattr(recipe, "seasonings"),
+            created_at=getattr(recipe, "created_at")
+        )
+        for recipe in recipes
+    ]
+    return recipe_list
+
+
+@app.get("/recipes/{recipe_id}", response_model=RecipeResponse)
+@handle_db_operation("레시피 조회")
+async def get_recipe_detail(recipe_id: int, db: Session = Depends(get_db)) -> RecipeResponse:
+    """특정 레시피의 상세 정보를 조회합니다."""
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
+    if not recipe:
+        raise create_error_response("레시피를 찾을 수 없습니다", status.HTTP_404_NOT_FOUND)
+
+    return RecipeResponse(
+        id=int(getattr(recipe, "id")),
+        title=str(getattr(recipe, "title")),
+        subtitle=str(getattr(recipe, "subtitle")),
+        youtube_link=str(getattr(recipe, "youtube_link")),
+        steps=getattr(recipe, "steps"),
+        ingredients=getattr(recipe, "ingredients"),
+        seasonings=getattr(recipe, "seasonings"),
+        created_at=getattr(recipe, "created_at")
+    )
+
+
+@app.post("/recipes/{recipe_id}/star", response_model=StarResponse)
+@handle_db_operation("좋아요 처리")
+async def toggle_star(
+        recipe_id: int,
+        current_user: UserResponse = Depends(get_current_user),
+        db: Session = Depends(get_db)
+) -> StarResponse:
+    """레시피에 좋아요를 토글합니다."""
+    try:
+        # 레시피가 존재하는지 확인
+        recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
+        if not recipe:
+            raise create_error_response("레시피를 찾을 수 없습니다", status.HTTP_404_NOT_FOUND)
+
+        # 이미 좋아요를 눌렀는지 확인
+        existing_star = db.query(Star).filter(
+            Star.recipe_id == recipe.id,
+            Star.kakao_id == current_user.kakao_id
+        ).first()
+
+        if existing_star:
+            # 좋아요 취소
+            star_data = StarResponse(
+                recipe_id=int(getattr(existing_star, "recipe_id")),
+                kakao_id=int(getattr(existing_star, "kakao_id")),
+                created_at=getattr(existing_star, "created_at")
+            )
+            db.delete(existing_star)
+            db.commit()
+            return star_data
+        else:
+            # 좋아요 추가
+            new_star = Star(
+                recipe_id=int(getattr(recipe, "id")),
+                kakao_id=current_user.kakao_id,
+                created_at=datetime.datetime.now()
+            )
+            db.add(new_star)
+            try:
+                db.commit()
+                db.refresh(new_star)
+                return StarResponse(
+                    recipe_id=int(getattr(new_star, "recipe_id")),
+                    kakao_id=int(getattr(new_star, "kakao_id")),
+                    created_at=getattr(new_star, "created_at")
+                )
+            except IntegrityError:
+                db.rollback()
+                raise create_error_response("이미 좋아요를 누른 레시피입니다", status.HTTP_400_BAD_REQUEST)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise create_error_response(f"좋아요 처리 중 오류가 발생했습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 async def search_youtube_video(query: str) -> str:
     """YouTube API를 사용하여 요리 영상을 비동기로 검색합니다."""
     try:
@@ -440,8 +558,8 @@ async def search_youtube_video(query: str) -> str:
             "key": YOUTUBE_API_KEY
         }
 
-        async with http_client as client:
-            response = await client.get(url, params=params)
+        async with http_client as ac:
+            response = await ac.get(url, params=params)
             response.raise_for_status()
             data = response.json()
 
@@ -458,38 +576,59 @@ async def search_youtube_video(query: str) -> str:
 
 
 @app.post("/generate-recipe")
-async def generate_recipe(ingredients: List[str]):
-    """사용자의 재료로 레시피를 생성합니다."""
+@handle_db_operation("레시피 생성")
+async def generate_recipe(
+        current_user: UserResponse = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """사용자의 보유 재료로 레시피를 생성합니다."""
     try:
+        # 사용자의 재료 목록 조회
+        user_ingredients = db.query(Ingredient).filter(
+            Ingredient.kakao_id == current_user.kakao_id,
+            Ingredient.added_date <= datetime.datetime.now(),
+            Ingredient.limit_date >= datetime.datetime.now()
+        ).all()
+
+        if not user_ingredients:
+            raise create_error_response(
+                "사용 가능한 재료가 없습니다. 재료를 먼저 추가해주세요.",
+                status.HTTP_400_BAD_REQUEST
+            )
+
+        # 사용자의 재료 이름 목록 (InstrumentedAttribute를 문자열로 변환)
+        ingredient_names = [str(getattr(ing, "name")) for ing in user_ingredients]
+
         # GPT API 호출하여 레시피 생성
-        recipe = await generate_recipe_with_gpt(ingredients)
-        return recipe
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        recipe_data = await generate_recipe_with_gpt(ingredient_names)
 
-
-@app.post("/save-recipe", response_model=RecipeResponse)
-async def save_recipe(recipe: RecipeCreate, current_user: dict = Depends(get_current_user),
-                      db: Session = Depends(get_db)):
-    """사용자가 마음에 든 레시피를 저장합니다."""
-    try:
+        # 생성된 레시피를 데이터베이스에 저장
         new_recipe = Recipe(
-            title=recipe.title,
-            subtitle=recipe.subtitle,
-            youtube_link=recipe.youtube_link,
-            steps=recipe.steps,
-            ingredients=recipe.ingredients,
-            seasonings=recipe.seasonings
+            title=recipe_data["title"],
+            subtitle=recipe_data["subtitle"],
+            youtube_link=recipe_data["youtube_link"],
+            steps=recipe_data["steps"],
+            ingredients=recipe_data["ingredients"],
+            seasonings=recipe_data["seasonings"],
+            created_at=datetime.datetime.now()
         )
         db.add(new_recipe)
         db.commit()
         db.refresh(new_recipe)
-        return new_recipe
+
+        # 응답에 레시피 ID 포함
+        return {
+            **recipe_data,
+            "id": new_recipe.id,
+            "is_starred": False
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"레시피 저장 중 오류가 발생했습니다: {str(e)}"
+        raise create_error_response(
+            f"레시피 생성 중 오류가 발생했습니다: {str(e)}",
+            status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -521,12 +660,19 @@ async def generate_recipe_with_gpt(ingredients: List[str]):
     ]
 }}"""
 
+        system_message: ChatCompletionSystemMessageParam = {
+            "role": "system",
+            "content": "당신은 요리 전문가입니다. 주어진 재료로 만들 수 있는 맛있는 요리 레시피를 제안해주세요."
+        }
+        user_message: ChatCompletionUserMessageParam = {
+            "role": "user",
+            "content": prompt
+        }
+        messages: List[ChatCompletionMessageParam] = [system_message, user_message]
+
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "당신은 요리 전문가입니다. 주어진 재료로 만들 수 있는 맛있는 요리 레시피를 제안해주세요."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.7,
             max_tokens=1000
         )
@@ -546,143 +692,6 @@ async def generate_recipe_with_gpt(ingredients: List[str]):
             "seasonings": recipe_data["seasonings"]
         }
     except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="GPT API 응답을 파싱할 수 없습니다."
-        )
+        raise create_error_response("GPT API 응답을 파싱할 수 없습니다.", status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"레시피 생성 중 오류가 발생했습니다: {str(e)}"
-        )
-
-
-@app.get("/recipes", response_model=List[RecipeResponse])
-async def get_recipes(
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    """사용자가 좋아요를 누른 레시피 목록을 조회합니다."""
-    try:
-        recipes = db.query(Recipe).join(Star).filter(
-            Star.kakao_id == current_user["kakao_id"]
-        ).all()
-        return recipes
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"레시피 조회 중 오류가 발생했습니다: {str(e)}"
-        )
-
-
-@app.get("/recipes/{recipe_id}", response_model=RecipeResponse)
-async def get_recipe_detail(
-        recipe_id: int,
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    """특정 레시피의 상세 정보를 조회합니다."""
-    try:
-        recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
-        if not recipe:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="레시피를 찾을 수 없습니다"
-            )
-        return recipe
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"레시피 조회 중 오류가 발생했습니다: {str(e)}"
-        )
-
-
-@app.post("/ingredients", response_model=IngredientResponse)
-async def add_ingredient(
-        ingredient: IngredientCreate,
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    """새로운 재료를 추가합니다."""
-    try:
-        new_ingredient = Ingredient.create(
-            db=db,
-            name=ingredient.name,
-            category=ingredient.category,
-            added_date=ingredient.added_date,
-            kakao_id=current_user["kakao_id"]
-        )
-        return new_ingredient
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"재료 추가 중 오류가 발생했습니다: {str(e)}"
-        )
-
-
-@app.put("/ingredients/{ingredient_id}", response_model=IngredientResponse)
-async def update_ingredient(
-        ingredient_id: int,
-        ingredient: IngredientUpdate,
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    """기존 재료 정보를 수정합니다."""
-    try:
-        existing_ingredient = db.query(Ingredient).filter(
-            Ingredient.id == ingredient_id,
-            Ingredient.kakao_id == current_user["kakao_id"]
-        ).first()
-        if not existing_ingredient:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="재료를 찾을 수 없습니다"
-            )
-
-        for key, value in ingredient.dict(exclude_unset=True).items():
-            setattr(existing_ingredient, key, value)
-        db.commit()
-        db.refresh(existing_ingredient)
-        return existing_ingredient
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"재료 수정 중 오류가 발생했습니다: {str(e)}"
-        )
-
-
-@app.delete("/ingredients/{ingredient_id}", response_model=MessageResponse)
-async def delete_ingredient(
-        ingredient_id: int,
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    """재료를 삭제합니다."""
-    try:
-        ingredient = db.query(Ingredient).filter(
-            Ingredient.id == ingredient_id,
-            Ingredient.kakao_id == current_user["kakao_id"]
-        ).first()
-        if not ingredient:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="재료를 찾을 수 없습니다"
-            )
-
-        db.delete(ingredient)
-        db.commit()
-        return {"message": "재료가 삭제되었습니다"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"재료 삭제 중 오류가 발생했습니다: {str(e)}"
-        )
+        raise create_error_response(f"레시피 생성 중 오류가 발생했습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)

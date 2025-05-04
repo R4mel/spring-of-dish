@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, Dict
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -25,7 +25,6 @@ class UserResponse(BaseSchema):
     nickname: str
     profile_image: str
     created_at: datetime
-    updated_at: Optional[datetime] = None
 
 
 class IngredientCreate(BaseSchema):
@@ -59,8 +58,8 @@ class RecipeBase(BaseSchema):
     subtitle: Optional[str] = Field(None, max_length=255)
     youtube_link: str
     steps: List[str]  # 요리 단계
-    ingredients: List[Dict[str, str]]  # 재료 목록 (name, iconUrl)
-    seasonings: List[Dict[str, str]]  # 양념 목록 (name, iconUrl)
+    ingredients: List[str]  # 재료 목록
+    seasonings: List[str]  # 양념 목록
 
 
 class RecipeCreate(RecipeBase):
@@ -85,31 +84,3 @@ class StarBase(BaseModel):
 
 class StarCreate(StarBase):
     pass
-
-
-class RecipeResponse(BaseSchema):
-    id: int
-    title: str
-    subtitle: str
-    youtube_link: str
-    steps: List[str]
-    ingredients: List[str]
-    seasonings: List[str]
-    saved_by: int
-    created_at: datetime
-    updated_at: datetime
-
-
-class RecipeCreate(BaseSchema):
-    title: str
-    subtitle: str
-    youtube_link: str
-    steps: List[str]
-    ingredients: List[str]
-    seasonings: List[str]
-
-
-class StarResponse(BaseSchema):
-    recipe_id: int
-    kakao_id: int
-    created_at: datetime
