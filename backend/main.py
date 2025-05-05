@@ -202,18 +202,19 @@ async def root():
     """루트 경로 접속 시 카카오 로그인 페이지로 리다이렉트"""
     return RedirectResponse(url="/authorize")
 
-
 @app.get("/authorize", response_class=RedirectResponse)
 async def authorize(request: Request) -> RedirectResponse:
     """카카오 로그인 페이지로 리다이렉트"""
     scope = request.query_params.get("scope")
     scope_param = f"&scope={scope}" if scope else ""
+    frontend_redirect = request.query_params.get("redirect_uri", "/home")  # 기본값
 
     redirect_url = (
         f"{kauth_host}/oauth/authorize"
         f"?response_type=code"
         f"&client_id={KAKAO_CLIENT_ID}"
         f"&redirect_uri={KAKAO_REDIRECT_URI}"
+        f"&state={frontend_redirect}"  # 프론트 경로를 state로 전달
         f"{scope_param}"
     )
     return RedirectResponse(redirect_url)
@@ -279,15 +280,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONRespo
             "profile_image": profile_image
         })
 
-        return JSONResponse({
-            "message": "Login successful",
-            "jwt_token": jwt_token,
-            "user": {
-                "kakao_id": kakao_id,
-                "nickname": nickname,
-                "profile_image": profile_image
-            }
-        })
+        return JSONResponse(content={"token": jwt_token}, status_code=200)
 
 
 @app.get("/profile", response_model=UserResponse)
