@@ -130,7 +130,6 @@ import IngredientPage from "./pages/IngredientPage";
 import FridgePage from "./pages/FridgePage";
 import RecipePage from "./pages/RecipePage";
 import LogoutPage from "./pages/LogoutPage";
-
 export default function App() {
   return (
     <Router>

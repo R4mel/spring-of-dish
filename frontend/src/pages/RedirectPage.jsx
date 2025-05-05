@@ -8,10 +8,10 @@ export default function RedirectPage() {
 
   useEffect(() => {
     if (!code) {
-      navigate("/");
+      navigate("/home");
       return;
     }
-    navigate("/", { replace: true });
+    navigate("/home", { replace: true });
   }, [code]);
 
   return <p>로그인 중</p>;

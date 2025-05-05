@@ -48,6 +48,8 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    environment:
+      - VITE_API_URL=http://areono.store:8000
     networks:
       - spring-network
 
