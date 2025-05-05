@@ -5,8 +5,8 @@ services:
     image: mariadb:11
     container_name: spring-db
     restart: always
-    ports:
-      - "3307:3306"  # 로컬 호스트 3307 → 컨테이너 3306 포트 매핑
+    # ports:
+    #   - "3307:3306"  # 로컬 호스트 3307 → 컨테이너 3306 포트 매핑
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: spring_of_dish
@@ -51,6 +51,19 @@ services:
     networks:
       - spring-network
 
+  # nginx:
+  #   image: nginx:latest
+  #   container_name: spring-nginx
+  #   restart: always
+  #   ports:
+  #     - "80:80"
+  #   depends_on:
+  #     - backend
+  #     - frontend
+  #   volumes:
+  #     - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #   networks:
+  #     - spring-network
 volumes:
   mariadb_data:
 
