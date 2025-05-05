@@ -38,12 +38,19 @@ SQLBase.metadata.create_all(bind=engine)
 
 load_dotenv()
 app = FastAPI()
+#cors 설정
 
 security = HTTPBearer()
 
+origins =[
+    "http://areono.store",
+    "http://localhost:3000",
+    "http://localhost:8000"
+
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -197,27 +204,28 @@ async def call_kakao_api(endpoint: str, method: str = "POST", data: dict = None)
         )
 
 
-@app.get("/", response_class=RedirectResponse)
-async def root():
-    """루트 경로 접속 시 카카오 로그인 페이지로 리다이렉트"""
-    return RedirectResponse(url="/authorize")
+# @app.get("/", response_class=RedirectResponse)
+# async def root():
+#     """루트 경로 접속 시 카카오 로그인 페이지로 리다이렉트"""
+#     return RedirectResponse(url="/authorize")
 
-@app.get("/authorize", response_class=RedirectResponse)
-async def authorize(request: Request) -> RedirectResponse:
-    """카카오 로그인 페이지로 리다이렉트"""
-    scope = request.query_params.get("scope")
-    scope_param = f"&scope={scope}" if scope else ""
-    frontend_redirect = request.query_params.get("redirect_uri", "/home")  # 기본값
 
-    redirect_url = (
-        f"{kauth_host}/oauth/authorize"
-        f"?response_type=code"
-        f"&client_id={KAKAO_CLIENT_ID}"
-        f"&redirect_uri={KAKAO_REDIRECT_URI}"
-        f"&state={frontend_redirect}"  # 프론트 경로를 state로 전달
-        f"{scope_param}"
-    )
-    return RedirectResponse(redirect_url)
+# @app.get("/authorize", response_class=RedirectResponse)
+# async def authorize(request: Request) -> RedirectResponse:
+#     """카카오 로그인 페이지로 리다이렉트"""
+#     scope = request.query_params.get("scope")
+#     scope_param = f"&scope={scope}" if scope else ""
+#     frontend_redirect = request.query_params.get("redirect_uri", "/home")  # 기본값
+#
+#     redirect_url = (
+#         f"{kauth_host}/oauth/authorize"
+#         f"?response_type=code"
+#         f"&client_id={KAKAO_CLIENT_ID}"
+#         f"&redirect_uri={KAKAO_REDIRECT_URI}"
+#         f"&state={frontend_redirect}"  # 프론트 경로를 state로 전달
+#         f"{scope_param}"
+#     )
+#     return RedirectResponse(redirect_url)
 
 
 @app.get("/redirect")
@@ -279,6 +287,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONRespo
             "nickname": nickname,
             "profile_image": profile_image
         })
+
 
         return JSONResponse(content={"token": jwt_token}, status_code=200)
 
