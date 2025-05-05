@@ -216,7 +216,7 @@ async def call_kakao_api(endpoint: str, method: str = "POST", data: dict = None)
 #     scope = request.query_params.get("scope")
 #     scope_param = f"&scope={scope}" if scope else ""
 #     frontend_redirect = request.query_params.get("redirect_uri", "/home")  # 기본값
-
+#
 #     redirect_url = (
 #         f"{kauth_host}/oauth/authorize"
 #         f"?response_type=code"
@@ -287,7 +287,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONRespo
             "nickname": nickname,
             "profile_image": profile_image
         })
-        
+
 
         return JSONResponse(content={"token": jwt_token}, status_code=200)
 
