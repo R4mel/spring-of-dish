@@ -14,6 +14,8 @@ import LogoutPage from "./pages/LogoutPage";
 import Header from "./components/Header/Header";
 import BottomNav from "./components/BottomNav/BottomNav";
 import MainContent from "./components/MainContent/MainContent";
+import LoginPage from './pages/LoginPage';
+import OAuthCallback from './pages/OAuthCallback';
 
 export default function App() {
   return (
@@ -35,10 +37,9 @@ export default function App() {
           {/* 냉장고 페이지 */}
           <Route path="/recipe" element={<RecipePage />} />{" "}
           {/* 레시피 페이지 */}
-          {/* 필요 시 로그아웃/연결 해제 페이지도 아래에 추가할 수 있습니다.
-            <Route path="/logout" element={<LogoutPage />} />
-            <Route path="/unlink" element={<UnlinkPage />} />
-          */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/callback" element={<OAuthCallback />} />
+          <Route path="/" element={<MainContent />} />
         </Routes>
 
         {/* 하단 네비게이션 */}
