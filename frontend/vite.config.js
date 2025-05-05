@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     host: true, // 모든 IP 허용
     allowedHosts: [
-      'areono.store' // 여기에 허용할 도메인 추가!
+      '' // 여기에 허용할 도메인 추가!
     ]
   }
 })

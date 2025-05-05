@@ -9,9 +9,9 @@ services:
     #   - "3307:3306"  # 로컬 호스트 3307 → 컨테이너 3306 포트 매핑
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: spring_of_dish
-      MYSQL_USER: dish
-      MYSQL_PASSWORD: spring
+      MYSQL_DATABASE:   # 데이터베이스명
+      MYSQL_USER:   # 데이터베이스 유저명
+      MYSQL_PASSWORD: # 데이터베이스 비밀번호
     command: --max-connections=1000
     networks:
       - spring-network
@@ -32,9 +32,9 @@ services:
       - CONTAINER_TIMEZONE=Asia/Seoul
       - MYSQL_HOST=mariadb
       - MYSQL_ROOT_PASSWORD=rootpassword
-      - MYSQL_USER=dish
-      - MYSQL_PASSWORD=spring
-      - MYSQL_DATABASE=spring_of_dish
+      - MYSQL_USER= # 데이터베이스 유저명
+      - MYSQL_PASSWORD= # 데이터베이스 비밀번호
+      - MYSQL_DATABASE= # 데이터베이스 명
     volumes:
       - ./backend:/app
     networks:
@@ -49,23 +49,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VITE_API_URL=http://areono.store:8000
+      - VITE_API_URL= # BACKEND_KAKAO_URI
     networks:
       - spring-network
 
-  # nginx:
-  #   image: nginx:latest
-  #   container_name: spring-nginx
-  #   restart: always
-  #   ports:
-  #     - "80:80"
-  #   depends_on:
-  #     - backend
-  #     - frontend
-  #   volumes:
-  #     - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-  #   networks:
-  #     - spring-network
+ 
 volumes:
   mariadb_data:
 
