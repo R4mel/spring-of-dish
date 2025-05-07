@@ -11,7 +11,8 @@ export default function LoginPage() {
     `?client_id=${kakaoClientId}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&response_type=code`;
-
+    `&prompt=login`;
+    
   return (
     <div className={styles.loginContainer}>
       <h2 className={styles.loginTitle}>로그인</h2>
