@@ -27,6 +27,12 @@ class UserResponse(BaseSchema):
     created_at: datetime
 
 
+class ImageResponse(BaseSchema):
+    id: int
+    name: str
+    image_url: str
+
+
 class IngredientCreate(BaseSchema):
     name: str
     category: str
@@ -37,6 +43,7 @@ class IngredientUpdate(BaseSchema):
     name: Optional[str] = None
     category: Optional[str] = None
     limit_date: Optional[datetime] = None
+    image_name: Optional[str] = None
 
 
 class IngredientResponse(BaseSchema):
@@ -47,6 +54,7 @@ class IngredientResponse(BaseSchema):
     limit_date: datetime
     is_expired: bool
     days_until_expiry: int
+    image_url: Optional[str] = None
 
 
 class IngredientsResponse(BaseSchema):

@@ -22,7 +22,7 @@ from starlette import status
 from starlette.responses import RedirectResponse, JSONResponse
 
 from database import engine, get_db
-from models import Base as SQLBase, Recipe, Ingredient, User, Star
+from models import Base as SQLBase, Recipe, Ingredient, User, Star, Image
 from schemas import (
     MessageResponse,
     UserResponse,
@@ -38,12 +38,20 @@ SQLBase.metadata.create_all(bind=engine)
 
 load_dotenv()
 app = FastAPI()
+# cors 설정
 
 security = HTTPBearer()
 
+origins = [
+    "http://areono.store",
+    "http://areono.store:3000",
+    "http://localhost:3000",
+    "http://localhost:8000"
+
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -279,15 +287,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONRespo
             "profile_image": profile_image
         })
 
-        return JSONResponse({
-            "message": "Login successful",
-            "jwt_token": jwt_token,
-            "user": {
-                "kakao_id": kakao_id,
-                "nickname": nickname,
-                "profile_image": profile_image
-            }
-        })
+        return JSONResponse(content={"token": jwt_token}, status_code=200)
 
 
 @app.get("/profile", response_model=UserResponse)
@@ -339,19 +339,9 @@ async def get_user_ingredients(
         Ingredient.limit_date >= datetime.datetime.now()
     ).all()
 
-    ingredient_list = [
-        IngredientResponse(
-            id=int(getattr(ing, "id")),
-            name=str(getattr(ing, "name")),
-            category=str(getattr(ing, "category")),
-            added_date=getattr(ing, "added_date").isoformat(),
-            limit_date=getattr(ing, "limit_date").isoformat(),
-            is_expired=bool(getattr(ing, "is_expired")),
-            days_until_expiry=int(getattr(ing, "days_until_expiry"))
-        )
-        for ing in ingredients
-    ]
-    return IngredientsResponse(ingredients=ingredient_list)
+    return IngredientsResponse(
+        ingredients=[ingredient.to_dict() for ingredient in ingredients]
+    )
 
 
 @app.post("/ingredients", response_model=IngredientResponse)
@@ -363,15 +353,19 @@ async def add_ingredient(
 ) -> IngredientResponse:
     """새로운 재료를 추가합니다."""
     try:
+        # 재료 이름으로 이미지 찾기
+        image = db.query(Image).filter(Image.name == ingredient.name).first()
+
         new_ingredient = Ingredient.create(
             db=db,
             name=ingredient.name,
             category=ingredient.category,
             added_date=ingredient.added_date,
-            kakao_id=current_user.kakao_id
+            kakao_id=current_user.kakao_id,
+            image_name=image.name if image else None
         )
         db.commit()
-        db.refresh(new_ingredient)  # 데이터베이스에서 생성된 ID를 가져오기 위해 refresh
+        db.refresh(new_ingredient)
 
         return IngredientResponse(
             id=int(getattr(new_ingredient, "id")),
@@ -380,7 +374,8 @@ async def add_ingredient(
             added_date=getattr(new_ingredient, "added_date"),
             limit_date=getattr(new_ingredient, "limit_date"),
             is_expired=bool(getattr(new_ingredient, "is_expired")),
-            days_until_expiry=int(getattr(new_ingredient, "days_until_expiry"))
+            days_until_expiry=int(getattr(new_ingredient, "days_until_expiry")),
+            image_url=new_ingredient.image.image_url if new_ingredient.image else None
         )
     except Exception as e:
         db.rollback()
@@ -398,27 +393,44 @@ async def update_ingredient(
         current_user: UserResponse = Depends(get_current_user),
         db: Session = Depends(get_db)
 ) -> IngredientResponse:
-    """기존 재료 정보를 수정합니다."""
-    existing_ingredient = db.query(Ingredient).filter(
+    """재료 정보를 수정합니다."""
+    db_ingredient = db.query(Ingredient).filter(
         Ingredient.id == ingredient_id,
         Ingredient.kakao_id == current_user.kakao_id
     ).first()
-    if not existing_ingredient:
+
+    if not db_ingredient:
         raise create_error_response("재료를 찾을 수 없습니다", status.HTTP_404_NOT_FOUND)
 
-    for key, value in ingredient.model_dump(exclude_unset=True).items():
-        setattr(existing_ingredient, key, value)
+    # 이미지 이름이 제공된 경우 해당 이미지가 존재하는지 확인
+    if ingredient.image_name is not None:
+        image = db.query(Image).filter(Image.name == ingredient.image_name).first()
+        if not image:
+            raise create_error_response(
+                f"이미지 '{ingredient.image_name}'을 찾을 수 없습니다",
+                status.HTTP_400_BAD_REQUEST
+            )
+        db_ingredient.image_name = ingredient.image_name
+
+    if ingredient.name is not None:
+        db_ingredient.name = ingredient.name
+    if ingredient.category is not None:
+        db_ingredient.category = ingredient.category
+    if ingredient.limit_date is not None:
+        db_ingredient.limit_date = ingredient.limit_date
+
     db.commit()
-    db.refresh(existing_ingredient)
+    db.refresh(db_ingredient)
 
     return IngredientResponse(
-        id=int(getattr(existing_ingredient, "id")),
-        name=str(getattr(existing_ingredient, "name")),
-        category=str(getattr(existing_ingredient, "category")),
-        added_date=getattr(existing_ingredient, "added_date"),
-        limit_date=getattr(existing_ingredient, "limit_date"),
-        is_expired=bool(getattr(existing_ingredient, "is_expired")),
-        days_until_expiry=int(getattr(existing_ingredient, "days_until_expiry"))
+        id=int(getattr(ingredient, "id")),
+        name=str(getattr(ingredient, "name")),
+        category=str(getattr(ingredient, "category")),
+        added_date=getattr(ingredient, "added_date"),
+        limit_date=getattr(ingredient, "limit_date"),
+        is_expired=bool(getattr(ingredient, "is_expired")),
+        days_until_expiry=int(getattr(ingredient, "days_until_expiry")),
+        image_url=db_ingredient.image.image_url if db_ingredient.image else None
     )
 
 
@@ -430,15 +442,17 @@ async def delete_ingredient(
         db: Session = Depends(get_db)
 ) -> MessageResponse:
     """재료를 삭제합니다."""
-    ingredient = db.query(Ingredient).filter(
+    db_ingredient = db.query(Ingredient).filter(
         Ingredient.id == ingredient_id,
         Ingredient.kakao_id == current_user.kakao_id
     ).first()
-    if not ingredient:
+
+    if not db_ingredient:
         raise create_error_response("재료를 찾을 수 없습니다", status.HTTP_404_NOT_FOUND)
 
-    db.delete(ingredient)
+    db.delete(db_ingredient)
     db.commit()
+
     return MessageResponse(message="재료가 삭제되었습니다")
 
 

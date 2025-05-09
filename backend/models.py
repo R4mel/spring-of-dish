@@ -61,6 +61,21 @@ class Star(Base):
     )
 
 
+class Image(Base):
+    __tablename__ = "images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(VARCHAR(255), nullable=False, unique=True)
+    image_url = Column(VARCHAR(255), nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "image_url": self.image_url
+        }
+
+
 class Ingredient(Base):
     __tablename__ = "ingredients"
 
@@ -70,8 +85,10 @@ class Ingredient(Base):
     added_date = Column(DateTime, default=datetime.datetime.now)
     limit_date = Column(DateTime, nullable=False)
     kakao_id = Column(BigInteger, ForeignKey("users.kakao_id"))
+    image_name = Column(VARCHAR(255), ForeignKey("images.name"), nullable=True)
 
     user = relationship("User", back_populates="ingredients")
+    image = relationship("Image", foreign_keys=[image_name], primaryjoin="Ingredient.image_name == Image.name")
 
     @property
     def is_expired(self):
@@ -89,17 +106,19 @@ class Ingredient(Base):
             "added_date": self.added_date.isoformat(),
             "limit_date": self.limit_date.isoformat(),
             "is_expired": self.is_expired,
-            "days_until_expiry": self.days_until_expiry
+            "days_until_expiry": self.days_until_expiry,
+            "image_url": self.image.image_url if self.image else None
         }
 
     @classmethod
-    def create(cls, db, name, category, added_date, kakao_id):
+    def create(cls, db, name, category, added_date, kakao_id, image_name=None):
         ingredient = cls(
             name=name,
             category=category,
-            added_date=added_date,
+            addzed_date=added_date,
             limit_date=added_date + datetime.timedelta(days=15),
-            kakao_id=kakao_id
+            kakao_id=kakao_id,
+            image_name=image_name
         )
         db.add(ingredient)
         db.commit()
