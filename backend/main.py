@@ -286,7 +286,7 @@ async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONRespo
             "nickname": nickname,
             "profile_image": profile_image
         })
-
+        
         return JSONResponse(content={"token": jwt_token}, status_code=200)
 
 

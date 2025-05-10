@@ -115,7 +115,7 @@ class Ingredient(Base):
         ingredient = cls(
             name=name,
             category=category,
-            addzed_date=added_date,
+            added_date=added_date,
             limit_date=added_date + datetime.timedelta(days=15),
             kakao_id=kakao_id,
             image_name=image_name
