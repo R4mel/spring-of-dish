@@ -8,6 +8,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from openai import OpenAI
@@ -17,7 +18,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam
 )
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session,joinedload
 from starlette import status
 from starlette.responses import RedirectResponse, JSONResponse
 
@@ -34,20 +35,249 @@ from schemas import (
     StarResponse
 )
 
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 SQLBase.metadata.create_all(bind=engine)
 
 load_dotenv()
 app = FastAPI()
+
+#static/icons 디렉토리가 없으면 생성
+os.makedirs("static/icons", exist_ok=True)
+
+#정적 파일 경로 등록
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+#__________________________________________________________
+# 이미지 초기화
+HAN_TO_ENG_ICON_MAP ={
+    "계란": "egg.svg",
+    "메추리알": "egg.svg",
+    "감자": "potato.svg",
+    "고구마": "sweet_potato.svg",
+    "누룽지": "rice_bowl.svg",
+    "밀가루": "flour.svg",
+    "빵가루": "flour.svg",
+    "쌀": "rice_bowl.svg",
+    "옥수수콘": "corn.svg",
+    "오트밀": "oats.svg",
+    "찹쌀가루": "flour.svg",
+    "감": "persimmon.svg",
+    "건포도": "raisin.svg",
+    "귤": "tangerine.svg",
+    "딸기": "strawberry.svg",
+    "라임": "lime.svg",
+    "레몬": "lemon.svg",
+    "망고": "mango.svg",
+    "멜론": "melon.svg",
+    "바나나": "banana.svg",
+    "배": "pear.svg",
+    "복숭아": "peach.svg",
+    "블루베리": "blueberry.svg",
+    "사과": "apple.svg",
+    "수박": "watermelon.svg",
+    "아보카도": "avocado.svg",
+    "오렌지": "tangerine.svg",
+    "자두": "plum.svg",
+    "자몽": "grapefruit.svg",
+    "체리": "cherry.svg",
+    "키위": "kiwi.svg",
+    "파인애플": "pineapple.svg",
+    "포도": "grape.svg",
+    "가지": "eggplant.svg",
+    "고추": "chili.svg",
+    "깻잎": "leaf.svg",
+    "당근": "carrot.svg",
+    "대파": "green_onion.svg",
+    "마늘": "garlic.svg",
+    "무": "radish.svg",
+    "열무": "radish.svg",
+    "바질": "basil.svg",
+    "배추": "cabbage.svg",
+    "브로콜리": "broccoli.svg",
+    "비트": "beet.svg",
+    "시금치": "spinach.svg",
+    "아스파라거스": "asparagus.svg",
+    "상추": "leaf.svg",
+    "샐러리": "green_onion.svg",
+    "애호박": "zucchini.svg",
+    "양배추": "cabbage.svg",
+    "양송이버섯": "mushroom.svg",
+    "팽이버섯": "mushroom.svg",
+    "표고버섯": "mushroom.svg",
+    "양파": "onion.svg",
+    "오이": "cucumber.svg",
+    "콩나물": "bean_sprout.svg",
+    "토마토": "tomato.svg",
+    "파프리카": "bell_pepper.svg",
+    "호박": "pumpkin.svg",
+    "가래떡": "rice_cake.svg",
+    "떡국떡": "rice_cake.svg",
+    "바게트": "baguette.svg",
+    "베이글": "bagel.svg",
+    "식빵": "bread.svg",
+    "당면": "noodle.svg",
+    "라면": "ramen.svg",
+    "소면": "noodle.svg",
+    "수제비": "ramens.svg",
+    "우동": "ramens.svg",
+    "중화면": "ramens.svg",
+    "칼국수": "ramens.svg",
+    "파스타": "pasta.svg",
+    "버터": "butter.svg",
+    "생크림": "whipping_cream.svg",
+    "요거트": "yogurt.svg",
+    "우유": "milk.svg",
+    "치즈": "cheese.svg",
+    "닭고기": "chicken.svg",
+    "돼지고기": "pig.svg",
+    "소고기": "cow.svg",
+    "양고기": "lamb.svg",
+    "오리고기": "lamb.svg",
+    "검은콩": "black_bean.svg",
+    "땅콩": "nut_mix.svg",
+    "병아리": "pea.svg",
+    "아몬드": "nut_mix.svg",
+    "완두": "pea.svg",
+    "팥": "red_bean.svg",
+    "피스타치오": "nut_mix.svg",
+    "호두": "nut_mix.svg",
+    "낙지젓": "octopus.svg",
+    "명란젓": "roe_box.svg",
+    "새우젓": "shrimp.svg",
+    "오징어젓": "squid.svg",
+    "간장": "sauce_bottle.svg",
+    "굴소스": "sauce_bottle.svg",
+    "고추장": "gochujang.svg",
+    "고춧가루": "gochujang.svg",
+    "깨": "seasoning_pack.svg",
+    "꿀": "honey.svg",
+    "까나리액젓": "sauce_bottle.svg",
+    "초고추장": "gochujang.svg",
+    "데리야끼": "black_source.svg",
+    "돈까스소스": "black_source.svg",
+    "된장": "sauce_bowl.svg",
+    "다진마늘": "garlic.svg",
+    "드레싱": "seasoning_pack.svg",
+    "머스타드": "yellow_bottle.svg",
+    "마요네즈": "yellow_bottle.svg",
+    "미원": "seasoning_pack.svg",
+    "물엿": "seasoning_pack.svg",
+    "맛술": "seasoning_pack.svg",
+    "멸치액젓": "seasoning_pack.svg",
+    "쇠고기다시다": "powder_can.svg",
+    "쌈장": "sauce_bowl.svg",
+    "식초": "seasoning_pack.svg",
+    "소금": "salt.svg",
+    "굵은소금": "salt.svg",
+    "가는소금": "salt.svg",
+    "올리브유": "olive_oil.svg",
+    "알룰로스": "seasoning_pack.svg",
+    "올리고당": "seasoning_pack.svg",
+    "쯔유": "sauce_bottle.svg",
+    "청국장": "sauce_bowl.svg",
+    "춘장": "sauce_bowl.svg",
+    "칠리소스": "hot_sauce.svg",
+    "참치액젓": "seasoning_pack.svg",
+    "참기름": "seasoning_pack.svg",
+    "카레가루": "powder_can.svg",
+    "케찹": "ketchup.svg",
+    "토마토페이스트": "tomato_paste.svg",
+    "파슬리": "seasoning_pack.svg",
+    "파마산": "seasoning_pack.svg",
+    "후추": "salt.svg",
+    "핫소스": "hot_sauce.svg",
+    "훠궈소스": "hot_sauce.svg",
+    "갈치": "fish.svg",
+    "고등어": "fish.svg",
+    "꽁치": "fish.svg",
+    "건새우": "shrimp.svg",
+    "게맛살": "crab.svg",
+    "굴": "clam.svg",
+    "골뱅이": "shell.svg",
+    "꽃게": "crab.svg",
+    "꼬막": "scallop.svg",
+    "낙지": "octopus.svg",
+    "동태": "fish.svg",
+    "대합": "scallop.svg",
+    "다시마": "seaweed.svg",
+    "도다리": "fish.svg",
+    "명태": "fish.svg",
+    "멸치": "fish.svg",
+    "미역": "seaweed.svg",
+    "문어": "octopus.svg",
+    "바지락": "scallop.svg",
+    "새우": "shrimp.svg",
+    "소라": "shell.svg",
+    "아귀": "fish.svg",
+    "연어": "fish.svg",
+    "오징어": "squid.svg",
+    "조기": "fish.svg",
+    "전어": "fish.svg",
+    "조개": "scallop.svg",
+    "쭈꾸미": "octopus.svg",
+    "전복": "scallop.svg",
+    "홍합": "mussel.svg",
+    "김치": "kimchi.svg",
+    "두부": "tofu.svg",
+    "베이컨": "bacon.svg",
+    "소세지": "bacon.svg",
+    "어묵": "fishcake.svg",
+    "유부": "fishcake.svg",
+    "진미채": "seasoning_wheel.svg",
+    "참치캔": "tuna_can.svg",
+    "스팸": "tuna_can.svg",
+    "감자튀김": "fries.svg",
+    "냉동만두": "dumpling.svg",
+    "냉동치킨너겟": "chicken_bucket.svg",
+    "돈까스": "cutlet.svg",
+    "해물믹스": "seafood_mix.svg"
+}
+def init_images(db: Session):
+    """이미지 정보를 초기화합니다."""
+    images = [
+        {"name": han, "image_url": f"/static/icons/{eng}"}
+        for han, eng in HAN_TO_ENG_ICON_MAP.items()
+
+    ]
+
+    for img_data in images:
+        existing_image = db.query(Image).filter(Image.name == img_data["name"]).first()
+        if not existing_image:
+            image = Image(**img_data)
+            db.add(image)
+
+    db.commit()
+
+def update_ingredient_images(db: Session):
+    """기존 재료의 이미지 정보를 업데이트합니다."""
+    ingredients = db.query(Ingredient).all()
+    for ingredient in ingredients:
+        if not ingredient.image_name:
+            image = db.query(Image).filter(Image.name == ingredient.name).first()
+            if image:
+                ingredient.image_name = image.name
+                db.add(ingredient)
+
+    db.commit()
+
+# 앱 시작 시 이미지 초기화
+@app.on_event("startup")
+async def startup_event():
+    db = next(get_db())
+    init_images(db)
+    update_ingredient_images(db)
+#__________________________________________________________
+
 # cors 설정
 
 security = HTTPBearer()
 
 origins = [
-    "http://areono.store",
-    "http://areono.store:3000",
-    "http://localhost:3000",
-    "http://localhost:8000"
-
+    "https://areono.store",
+    "http://frontend:3000"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -57,8 +287,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]
 )
-
-http_client = httpx.AsyncClient()
 
 KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
 KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
@@ -163,33 +391,53 @@ async def validate_jwt_token(jwt_token: str) -> dict:
         )
 
 
-async def get_current_user(
-        credentials: HTTPAuthorizationCredentials = Depends(security),
-        db: Session = Depends(get_db)
-) -> UserResponse:
-    """JWT 토큰을 검증하고 데이터베이스에서 사용자 정보를 조회합니다."""
-    try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        kakao_id = int(payload["sub"].strip("'"))
+# async def get_current_user(
+#         credentials: HTTPAuthorizationCredentials = Depends(security),
+#         db: Session = Depends(get_db)
+# ) -> UserResponse:
+#     """JWT 토큰을 검증하고 데이터베이스에서 사용자 정보를 조회합니다."""
+#     try:
+#         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+#         kakao_id = int(payload["sub"].strip("'"))
 
+#         user = db.query(User).filter(User.kakao_id == kakao_id).first()
+#         if not user:
+#             raise create_error_response("User not found", status.HTTP_401_UNAUTHORIZED)
+
+#         return UserResponse(
+#             kakao_id=int(getattr(user, "kakao_id")),
+#             nickname=str(getattr(user, "nickname")),
+#             profile_image=str(getattr(user, "profile_image")),
+#             created_at=getattr(user, "created_at")
+#         )
+#     except JWTError:
+#         raise create_error_response("Invalid token", status.HTTP_401_UNAUTHORIZED)
+
+
+async def get_current_user(request: Request,           # ↓ HTTPBearer 대신 Request 사용
+                           db: Session = Depends(get_db)) -> UserResponse:
+    token = request.cookies.get("token")                  # 쿠키에서 꺼내기
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        kakao_id = int(payload["sub"].strip("'"))
         user = db.query(User).filter(User.kakao_id == kakao_id).first()
         if not user:
-            raise create_error_response("User not found", status.HTTP_401_UNAUTHORIZED)
-
+            raise HTTPException(status_code=401, detail="User not found")
         return UserResponse(
-            kakao_id=int(getattr(user, "kakao_id")),
-            nickname=str(getattr(user, "nickname")),
-            profile_image=str(getattr(user, "profile_image")),
-            created_at=getattr(user, "created_at")
+            kakao_id=user.kakao_id,
+            nickname=user.nickname,
+            profile_image=user.profile_image,
+            created_at=user.created_at
         )
     except JWTError:
-        raise create_error_response("Invalid token", status.HTTP_401_UNAUTHORIZED)
-
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 async def call_kakao_api(endpoint: str, method: str = "POST", data: dict = None) -> dict:
     """카카오 API를 호출합니다."""
     try:
-        async with http_client as ac:
+        async with httpx.AsyncClient() as ac:
             response = await ac.request(
                 method=method,
                 url=f"{kapi_host}{endpoint}",
@@ -205,10 +453,10 @@ async def call_kakao_api(endpoint: str, method: str = "POST", data: dict = None)
         )
 
 
-@app.get("/", response_class=RedirectResponse)
-async def root():
-    """루트 경로 접속 시 카카오 로그인 페이지로 리다이렉트"""
-    return RedirectResponse(url="/authorize")
+# @app.get("/", response_class=RedirectResponse)
+# async def root():
+#     """루트 경로 접속 시 카카오 로그인 페이지로 리다이렉트"""
+#     return RedirectResponse(url="/authorize")
 
 
 @app.get("/authorize", response_class=RedirectResponse)
@@ -217,23 +465,30 @@ async def authorize(request: Request) -> RedirectResponse:
     scope = request.query_params.get("scope")
     scope_param = f"&scope={scope}" if scope else ""
 
+    state = request.query_params.get("state")
+    state_param = f"&state={state}" if state else ""
+
     redirect_url = (
         f"{kauth_host}/oauth/authorize"
         f"?response_type=code"
         f"&client_id={KAKAO_CLIENT_ID}"
         f"&redirect_uri={KAKAO_REDIRECT_URI}"
         f"{scope_param}"
+        f"{state_param}"
     )
     return RedirectResponse(redirect_url)
 
 
-@app.get("/redirect")
+@app.get("/api/redirect")
 @handle_db_operation("로그인")
 async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONResponse:
     """카카오 로그인 콜백 처리"""
     code = request.query_params.get("code")
     if not code:
+        logger.error("No code provided in the request")
         return JSONResponse({"error": "No code provided"}, status_code=400)
+
+    state = request.query_params.get("state") or "/"
 
     token_url = kauth_host + "/oauth/token"
     data = {
@@ -251,11 +506,13 @@ async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONRespo
         access_token = token_json.get("access_token")
 
         if not access_token:
+            logger.error(f"Failed to get access token: {token_json}")
             return JSONResponse({"error": "Failed to get access token", "detail": token_json}, status_code=400)
 
         headers = {'Authorization': f'Bearer {access_token}'}
         profile_resp = await ac.get(f"{kapi_host}/v2/user/me", headers=headers)
         if profile_resp.status_code != 200:
+            logger.error(f"Failed to get user profile: {profile_resp.status_code} {profile_resp.text}")
             return JSONResponse({"error": "Failed to get user profile"}, status_code=400)
 
         profile_data = profile_resp.json()
@@ -278,7 +535,10 @@ async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONRespo
                 created_at=datetime.datetime.now()
             )
             db.add(user)
+            logger.info(f"New user added: {user}")
         db.commit()
+
+        #response = RedirectResponse(url=state)
 
         jwt_token = create_jwt_token({
             "sub": repr(kakao_id),
@@ -286,11 +546,26 @@ async def redirect(request: Request, db: Session = Depends(get_db)) -> JSONRespo
             "nickname": nickname,
             "profile_image": profile_image
         })
-        
-        return JSONResponse(content={"token": jwt_token}, status_code=200)
+        logger.info(f"JWT token created: {jwt_token}")
+
+        # return JSONResponse({"token": jwt_token}, status_code=200)
+        # 쿠키저장에 jwt json
 
 
-@app.get("/profile", response_model=UserResponse)
+        response = RedirectResponse(url="https://areono.store/home")
+        response.set_cookie(
+            key="token",
+            value=jwt_token,
+            httponly=True,
+            secure=True,            # JavaScript에서 접근 못 함
+            samesite="None",
+            max_age=60 * 60 * 24 * 1,   # 7일
+            path="/"
+        )
+        return response
+
+
+@app.get("/api/profile", response_model=UserResponse)
 async def profile(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
     """사용자 프로필 정보를 조회합니다."""
     return current_user
@@ -326,14 +601,16 @@ async def unlink(request: Request, db: Session = Depends(get_db)):
     return delete_jwt_cookie(response)
 
 
-@app.get("/user-ingredients", response_model=IngredientsResponse)
+@app.get("/api/user-ingredients", response_model=IngredientsResponse)
 @handle_db_operation("재료 조회")
 async def get_user_ingredients(
         current_user: UserResponse = Depends(get_current_user),
         db: Session = Depends(get_db)
 ) -> IngredientsResponse:
     """사용자의 재료 목록을 조회합니다."""
-    ingredients = db.query(Ingredient).filter(
+    ingredients = db.query(Ingredient).options(
+        joinedload(Ingredient.image)
+    ).filter(
         Ingredient.kakao_id == current_user.kakao_id,
         Ingredient.added_date <= datetime.datetime.now(),
         Ingredient.limit_date >= datetime.datetime.now()
@@ -344,7 +621,7 @@ async def get_user_ingredients(
     )
 
 
-@app.post("/ingredients", response_model=IngredientResponse)
+@app.post("/api/ingredients", response_model=IngredientResponse)
 @handle_db_operation("재료 추가")
 async def add_ingredient(
         ingredient: IngredientCreate,
@@ -355,6 +632,9 @@ async def add_ingredient(
     try:
         # 재료 이름으로 이미지 찾기
         image = db.query(Image).filter(Image.name == ingredient.name).first()
+
+        image_name = HAN_TO_ENG_ICON_MAP.get(ingredient.name)
+        image_url = f"/static/icons/{image_name}" if image_name else None
 
         new_ingredient = Ingredient.create(
             db=db,
@@ -375,7 +655,7 @@ async def add_ingredient(
             limit_date=getattr(new_ingredient, "limit_date"),
             is_expired=bool(getattr(new_ingredient, "is_expired")),
             days_until_expiry=int(getattr(new_ingredient, "days_until_expiry")),
-            image_url=new_ingredient.image.image_url if new_ingredient.image else None
+            image_url=image_url
         )
     except Exception as e:
         db.rollback()
@@ -385,7 +665,7 @@ async def add_ingredient(
         )
 
 
-@app.put("/ingredients/{ingredient_id}", response_model=IngredientResponse)
+@app.put("/api/ingredients/{ingredient_id}", response_model=IngredientResponse)
 @handle_db_operation("재료 수정")
 async def update_ingredient(
         ingredient_id: int,
@@ -418,23 +698,25 @@ async def update_ingredient(
         db_ingredient.category = ingredient.category
     if ingredient.limit_date is not None:
         db_ingredient.limit_date = ingredient.limit_date
+    if ingredient.added_date is not None:
+        db_ingredient.added_date = ingredient.added_date
 
     db.commit()
     db.refresh(db_ingredient)
 
     return IngredientResponse(
-        id=int(getattr(ingredient, "id")),
-        name=str(getattr(ingredient, "name")),
-        category=str(getattr(ingredient, "category")),
-        added_date=getattr(ingredient, "added_date"),
-        limit_date=getattr(ingredient, "limit_date"),
-        is_expired=bool(getattr(ingredient, "is_expired")),
-        days_until_expiry=int(getattr(ingredient, "days_until_expiry")),
+        id=ingredient_id,
+        name=db_ingredient.name,
+        category=db_ingredient.category,
+        added_date=db_ingredient.added_date,
+        limit_date=db_ingredient.limit_date,
+        is_expired=db_ingredient.is_expired,
+        days_until_expiry=db_ingredient.days_until_expiry,
         image_url=db_ingredient.image.image_url if db_ingredient.image else None
     )
 
 
-@app.delete("/ingredients/{ingredient_id}", response_model=MessageResponse)
+@app.delete("/api/ingredients/{ingredient_id}", response_model=MessageResponse)
 @handle_db_operation("재료 삭제")
 async def delete_ingredient(
         ingredient_id: int,
@@ -456,7 +738,7 @@ async def delete_ingredient(
     return MessageResponse(message="재료가 삭제되었습니다")
 
 
-@app.get("/recipes", response_model=List[RecipeResponse])
+@app.get("/api/recipes", response_model=List[RecipeResponse])
 @handle_db_operation("레시피 조회")
 async def get_recipes(
         current_user: UserResponse = Depends(get_current_user),
@@ -483,7 +765,7 @@ async def get_recipes(
     return recipe_list
 
 
-@app.get("/recipes/{recipe_id}", response_model=RecipeResponse)
+@app.get("/api/recipes/{recipe_id}", response_model=RecipeResponse)
 @handle_db_operation("레시피 조회")
 async def get_recipe_detail(recipe_id: int, db: Session = Depends(get_db)) -> RecipeResponse:
     """특정 레시피의 상세 정보를 조회합니다."""
@@ -503,7 +785,7 @@ async def get_recipe_detail(recipe_id: int, db: Session = Depends(get_db)) -> Re
     )
 
 
-@app.post("/recipes/{recipe_id}/star", response_model=StarResponse)
+@app.post("/api/recipes/{recipe_id}/star", response_model=StarResponse)
 @handle_db_operation("좋아요 처리")
 async def toggle_star(
         recipe_id: int,
@@ -559,37 +841,202 @@ async def toggle_star(
         raise create_error_response(f"좋아요 처리 중 오류가 발생했습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-async def search_youtube_video(query: str) -> str:
+async def search_youtube_video(query: str) -> List[dict]:
     """YouTube API를 사용하여 요리 영상을 비동기로 검색합니다."""
     try:
+        if not YOUTUBE_API_KEY:
+            raise ValueError("YouTube API 키가 설정되지 않았습니다.")
+
         url = "https://www.googleapis.com/youtube/v3/search"
         params = {
             "part": "snippet",
             "q": query,
             "type": "video",
-            "videoCategoryId": "26",
-            "maxResults": 1,
-            "key": YOUTUBE_API_KEY
+            "videoCategoryId": "26",  # Food & Drink category
+            "maxResults": 5,  # 바로 5개만 가져오기
+            "key": YOUTUBE_API_KEY,
+            "relevanceLanguage": "ko",  # 한국어 결과 우선
+            "regionCode": "KR",  # 한국 지역 결과 우선
+            "order": "relevance"  # 관련성 순으로 정렬
         }
 
-        async with http_client as ac:
+        async with httpx.AsyncClient() as ac:
             response = await ac.get(url, params=params)
             response.raise_for_status()
             data = response.json()
 
-            if "items" in data and len(data["items"]) > 0:
-                video_id = data["items"][0]["id"]["videoId"]
-                return f"https://www.youtube.com/watch?v={video_id}"
+            if "error" in data:
+                error_message = data["error"].get("message", "Unknown error")
+                raise ValueError(f"YouTube API 오류: {error_message}")
 
-            # 검색 결과가 없거나 API 호출이 실패한 경우 검색 결과 페이지 링크 반환
-            return f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+            if "items" not in data or not data["items"]:
+                return []
+
+            results = []
+            for item in data["items"]:
+                try:
+                    video_data = {
+                        "video_id": item["id"]["videoId"],
+                        "title": item["snippet"]["title"],
+                        "thumbnail": item["snippet"]["thumbnails"]["high"]["url"],
+                        "url": f"https://www.youtube.com/watch?v={item['id']['videoId']}",
+                    }
+                    results.append(video_data)
+                except KeyError as e:
+                    continue
+
+            return results
+
     except Exception as e:
-        print(f"YouTube API Error: {str(e)}")
-        # 에러 발생 시에도 검색 결과 페이지 링크 반환
-        return f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+        raise ValueError(f"YouTube 검색 중 오류 발생: {str(e)}")
 
 
-@app.post("/generate-recipe")
+async def get_video_metadata(video_url: str) -> dict:
+    """YouTube API를 사용하여 비디오의 메타데이터를 가져옵니다."""
+    try:
+        if not YOUTUBE_API_KEY:
+            raise ValueError("YouTube API 키가 설정되지 않았습니다.")
+
+        # URL에서 video_id 추출
+        if "youtube.com/watch?v=" in video_url:
+            video_id = video_url.split("watch?v=")[-1].split("&")[0]
+        elif "youtube.com/shorts/" in video_url:
+            video_id = video_url.split("shorts/")[-1].split("?")[0]
+        else:
+            raise ValueError(f"지원하지 않는 YouTube URL 형식입니다: {video_url}")
+
+        url = "https://www.googleapis.com/youtube/v3/videos"
+        params = {
+            "part": "snippet",
+            "id": video_id,
+            "key": YOUTUBE_API_KEY
+        }
+
+        async with httpx.AsyncClient() as ac:
+            response = await ac.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            if "error" in data:
+                error_message = data["error"].get("message", "Unknown error")
+                raise ValueError(f"YouTube API 오류: {error_message}")
+
+            if "items" not in data or not data["items"]:
+                raise ValueError(f"비디오를 찾을 수 없습니다. (ID: {video_id})")
+
+            item = data["items"][0]["snippet"]
+            return {
+                "title": item["title"],
+                "description": item["description"],
+                "tags": item.get("tags", []),
+                "url": video_url
+            }
+    except Exception as e:
+        raise ValueError(f"비디오 메타데이터 가져오기 실패: {str(e)}")
+
+async def generate_recipe_with_gpt(video_url: str):
+    """GPT API를 사용하여 YouTube 영상의 레시피를 분석하고 생성합니다."""
+    try:
+        # 비디오 메타데이터 가져오기
+        metadata = await get_video_metadata(video_url)
+        if not metadata:
+            raise create_error_response("비디오 정보를 가져올 수 없습니다.", status.HTTP_400_BAD_REQUEST)
+
+        prompt = f"""다음 YouTube 영상의 정보를 바탕으로 요리 레시피를 생성해주세요.
+
+영상 제목: {metadata['title']}
+영상 설명: {metadata['description']}
+영상 태그: {', '.join(metadata['tags']) if metadata['tags'] else '없음'}
+
+아래 JSON 형식으로 정확히 응답해주세요. 다른 설명이나 텍스트는 포함하지 마세요:
+{{
+    "recipe": {{
+        "title": "한국어 요리 제목 (2-50자)",
+        "subtitle": "한국어로 된 간단한 설명 (10-100자)",
+        "steps": [
+            "한국어로 된 1단계 설명 (20자 이상)",
+            "한국어로 된 2단계 설명 (20자 이상)",
+            "한국어로 된 3단계 설명 (20자 이상)"
+        ],
+        "ingredients": [
+            "한국어로 된 재료 1",
+            "한국어로 된 재료 2",
+            "한국어로 된 재료 3"
+        ],
+        "seasonings": [
+            "한국어로 된 양념 1",
+            "한국어로 된 양념 2",
+            "한국어로 된 양념 3"
+        ],
+        "youtube_url": "{video_url}"
+    }}
+}}"""
+
+        system_message: ChatCompletionSystemMessageParam = {
+            "role": "system",
+            "content": """당신은 한국 요리 전문가입니다.
+주어진 YouTube 영상의 정보를 바탕으로 상세한 요리 레시피를 생성해주세요.
+모든 설명은 반드시 한국어로 작성해주세요.
+레시피는 실용적이고 따라하기 쉬워야 합니다.
+영상의 제목, 설명, 태그를 바탕으로 재료와 양념을 정확히 파악하고 설명해주세요.
+반드시 요청된 JSON 형식을 정확히 지켜주세요.
+다른 설명이나 텍스트는 포함하지 마세요."""
+        }
+        user_message: ChatCompletionUserMessageParam = {
+            "role": "user",
+            "content": prompt
+        }
+        messages: List[ChatCompletionMessageParam] = [system_message, user_message]
+
+        response = client.chat.completions.create(
+            model="gpt-4.1",
+            messages=messages,
+            temperature=0.3,  # 더 일관된 응답을 위해 temperature 낮춤
+            max_tokens=2000,
+            response_format={ "type": "json_object" }
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        try:
+            recipe_data = json.loads(content)
+            if not isinstance(recipe_data, dict) or "recipe" not in recipe_data:
+                raise ValueError("Invalid recipe data format: missing 'recipe' key")
+
+            recipe = recipe_data["recipe"]
+            required_fields = ["title", "subtitle", "steps", "ingredients", "seasonings", "youtube_url"]
+            missing_fields = [field for field in required_fields if field not in recipe]
+            if missing_fields:
+                raise ValueError(f"Missing required fields in recipe: {', '.join(missing_fields)}")
+
+            # 한국어 검증 로직
+            def contains_korean(text):
+                return any(ord('가') <= ord(c) <= ord('힣') for c in text)
+
+            if not contains_korean(recipe["title"]):
+                raise ValueError("Recipe title must contain Korean characters")
+
+            # 단계 설명 검증
+            if len(recipe["steps"]) < 3:
+                raise ValueError("Recipe must have at least 3 steps")
+
+            for step in recipe["steps"]:
+                if not contains_korean(step):
+                    raise ValueError("Recipe steps must be in Korean")
+                if len(step) < 20:
+                    raise ValueError("Recipe step description must be at least 20 characters")
+
+            return recipe
+
+        except json.JSONDecodeError as e:
+            raise create_error_response(f"GPT API 응답을 파싱할 수 없습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except ValueError as e:
+            raise create_error_response(f"레시피 데이터 형식이 올바르지 않습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except Exception as e:
+        raise create_error_response(f"레시피 생성 중 오류가 발생했습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@app.post("/api/generate-recipe")
 @handle_db_operation("레시피 생성")
 async def generate_recipe(
         current_user: UserResponse = Depends(get_current_user),
@@ -598,44 +1045,57 @@ async def generate_recipe(
     """사용자의 보유 재료로 레시피를 생성합니다."""
     try:
         # 사용자의 재료 목록 조회
-        user_ingredients = db.query(Ingredient).filter(
+        ingredients = db.query(Ingredient).options(
+            joinedload(Ingredient.image)
+        ).filter(
             Ingredient.kakao_id == current_user.kakao_id,
             Ingredient.added_date <= datetime.datetime.now(),
             Ingredient.limit_date >= datetime.datetime.now()
         ).all()
 
-        if not user_ingredients:
+        if not ingredients:
             raise create_error_response(
                 "사용 가능한 재료가 없습니다. 재료를 먼저 추가해주세요.",
                 status.HTTP_400_BAD_REQUEST
             )
 
-        # 사용자의 재료 이름 목록 (InstrumentedAttribute를 문자열로 변환)
-        ingredient_names = [str(getattr(ing, "name")) for ing in user_ingredients]
+        # 사용자의 재료 이름 목록
+        ingredient_names = [str(getattr(ing, "name")) for ing in ingredients]
 
-        # GPT API 호출하여 레시피 생성
-        recipe_data = await generate_recipe_with_gpt(ingredient_names)
+        # 1. YouTube 검색 결과 가져오기
+        youtube_queries = [
+            f"{ingredient_names[0]} 요리 레시피",
+            f"{ingredient_names[0]} {ingredient_names[1]} 요리",
+            f"{ingredient_names[0]} {ingredient_names[1]} {ingredient_names[2]} 요리"
+        ]
 
-        # 생성된 레시피를 데이터베이스에 저장
-        new_recipe = Recipe(
-            title=recipe_data["title"],
-            subtitle=recipe_data["subtitle"],
-            youtube_link=recipe_data["youtube_link"],
-            steps=recipe_data["steps"],
-            ingredients=recipe_data["ingredients"],
-            seasonings=recipe_data["seasonings"],
-            created_at=datetime.datetime.now()
-        )
-        db.add(new_recipe)
-        db.commit()
-        db.refresh(new_recipe)
+        all_videos = []
+        for query in youtube_queries:
+            videos = await search_youtube_video(query)
+            all_videos.extend(videos)
 
-        # 응답에 레시피 ID 포함
+        # 중복 제거 및 최대 5개로 제한
+        unique_videos = []
+        seen_urls = set()
+        for video in all_videos:
+            if video["url"] not in seen_urls:
+                seen_urls.add(video["url"])
+                unique_videos.append(video)
+            if len(unique_videos) >= 5:
+                break
+
+        if not unique_videos:
+            raise create_error_response(
+                "적절한 요리 영상을 찾을 수 없습니다.",
+                status.HTTP_404_NOT_FOUND
+            )
+
         return {
-            **recipe_data,
-            "id": new_recipe.id,
-            "is_starred": False
+            "status": "success",
+            "message": "YouTube 검색 결과",
+            "videos": unique_videos
         }
+
     except HTTPException:
         raise
     except Exception as e:
@@ -645,67 +1105,203 @@ async def generate_recipe(
             status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-
-async def generate_recipe_with_gpt(ingredients: List[str]):
-    """GPT API를 사용하여 레시피를 생성하고 YouTube API로 관련 영상을 검색합니다."""
+@app.post("/api/generate-recipe-details")
+@handle_db_operation("레시피 상세 생성")
+async def generate_recipe_details(
+        video_url: str,
+        current_user: UserResponse = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """선택된 YouTube 영상에 대한 레시피 상세 정보를 생성합니다."""
     try:
-        ingredient_str = ", ".join(ingredients)
-        prompt = f"""다음 재료들을 사용한 요리 레시피를 생성해주세요:
-재료: {ingredient_str}
+        # GPT로 레시피 상세 정보 생성
+        recipe = await generate_recipe_with_gpt(video_url)
 
-다음 JSON 형식으로만 응답해주세요:
-{{
-    "title": "요리 제목",
-    "subtitle": "간단한 설명",
-    "steps": [
-        "1단계 설명",
-        "2단계 설명",
-        ...
-    ],
-    "ingredients": [
-        "필요한 재료 1",
-        "필요한 재료 2",
-        ...
-    ],
-    "seasonings": [
-        "필요한 양념 1",
-        "필요한 양념 2",
-        ...
-    ]
-}}"""
+        if not recipe:
+            raise create_error_response(
+                "레시피 상세 정보를 생성할 수 없습니다.",
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-        system_message: ChatCompletionSystemMessageParam = {
-            "role": "system",
-            "content": "당신은 요리 전문가입니다. 주어진 재료로 만들 수 있는 맛있는 요리 레시피를 제안해주세요."
-        }
-        user_message: ChatCompletionUserMessageParam = {
-            "role": "user",
-            "content": prompt
-        }
-        messages: List[ChatCompletionMessageParam] = [system_message, user_message]
-
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=1000
+        # 레시피 저장
+        new_recipe = Recipe(
+            title=recipe["title"],
+            subtitle=recipe["subtitle"],
+            youtube_link=recipe["youtube_url"],
+            steps=recipe["steps"],
+            ingredients=recipe["ingredients"],
+            seasonings=recipe["seasonings"],
+            created_at=datetime.datetime.now()
         )
-
-        content = response.choices[0].message.content.strip()
-        recipe_data = json.loads(content)
-
-        youtube_query = f"{recipe_data['title']} 레시피"
-        youtube_link = await search_youtube_video(youtube_query)
+        db.add(new_recipe)
+        db.commit()
+        db.refresh(new_recipe)
 
         return {
-            "title": recipe_data["title"],
-            "subtitle": recipe_data["subtitle"],
-            "youtube_link": youtube_link,
-            "steps": recipe_data["steps"],
-            "ingredients": recipe_data["ingredients"],
-            "seasonings": recipe_data["seasonings"]
+            "status": "success",
+            "message": "레시피 상세 정보가 생성되었습니다.",
+            "recipe": {
+                **recipe,
+                "id": new_recipe.id,
+                "is_starred": False
+            }
         }
-    except json.JSONDecodeError:
-        raise create_error_response("GPT API 응답을 파싱할 수 없습니다.", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    except HTTPException:
+        raise
     except Exception as e:
-        raise create_error_response(f"레시피 생성 중 오류가 발생했습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+        db.rollback()
+        raise create_error_response(
+            f"레시피 상세 정보 생성 중 오류가 발생했습니다: {str(e)}",
+            status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@app.get("/api/test/youtube")
+async def test_youtube():
+    """YouTube API 테스트"""
+    try:
+        # 단일 검색어로 테스트
+        test_query = "감자 요리"
+
+        try:
+            videos = await search_youtube_video(test_query)
+            if not videos:
+                return JSONResponse({
+                    "status": "error",
+                    "message": "검색 결과가 없습니다.",
+                    "query": test_query
+                }, status_code=404)
+
+            return JSONResponse({
+                "status": "success",
+                "message": "YouTube API 테스트 완료",
+                "query": test_query,
+                "video_count": len(videos),
+                "videos": [{
+                    "title": video["title"],
+                    "url": video["url"],
+                    "thumbnail": video["thumbnail"]
+                } for video in videos]
+            })
+        except Exception as e:
+            return JSONResponse({
+                "status": "error",
+                "message": f"YouTube 검색 실패: {str(e)}",
+                "query": test_query
+            }, status_code=500)
+
+    except Exception as e:
+        return JSONResponse({
+            "status": "error",
+            "message": f"YouTube API 테스트 실패: {str(e)}"
+        }, status_code=500)
+
+@app.get("/api/test/gpt")
+async def test_gpt():
+    """GPT API 테스트"""
+    try:
+        # 테스트용 YouTube URL (실제 존재하는 요리 영상)
+        test_video_url = "https://www.youtube.com/watch?v=rDwyR7gkxvU"  # 감자조림 레시피 영상
+
+        # GPT로 레시피 생성
+        recipe = await generate_recipe_with_gpt(test_video_url)
+
+        if not recipe:
+            return JSONResponse({
+                "status": "error",
+                "message": "GPT API 응답이 없습니다.",
+                "video_url": test_video_url
+            }, status_code=500)
+
+        # 결과 검증
+        validation = {
+            "title": {
+                "value": recipe["title"],
+                "has_korean": any(ord('가') <= ord(c) <= ord('힣') for c in recipe["title"]),
+                "length": len(recipe["title"])
+            },
+            "subtitle": {
+                "value": recipe["subtitle"],
+                "has_korean": any(ord('가') <= ord(c) <= ord('힣') for c in recipe["subtitle"]),
+                "length": len(recipe["subtitle"])
+            },
+            "steps": {
+                "count": len(recipe["steps"]),
+                "all_have_korean": all(any(ord('가') <= ord(c) <= ord('힣') for c in step) for step in recipe["steps"]),
+                "min_length": min(len(step) for step in recipe["steps"]) if recipe["steps"] else 0
+            },
+            "ingredients": {
+                "count": len(recipe["ingredients"]),
+                "all_have_korean": all(any(ord('가') <= ord(c) <= ord('힣') for c in ing) for ing in recipe["ingredients"])
+            },
+            "seasonings": {
+                "count": len(recipe["seasonings"]),
+                "all_have_korean": all(any(ord('가') <= ord(c) <= ord('힣') for c in sea) for sea in recipe["seasonings"])
+            }
+        }
+
+        return JSONResponse({
+            "status": "success",
+            "message": "GPT API 테스트 완료",
+            "video_url": test_video_url,
+            "recipe": recipe,
+            "validation": validation
+        })
+    except Exception as e:
+        return JSONResponse({
+            "status": "error",
+            "message": f"GPT API 테스트 실패: {str(e)}",
+            "video_url": test_video_url
+        }, status_code=500)
+
+@app.get("/api/test/full-flow")
+async def test_full_flow():
+    """전체 레시피 생성 프로세스 테스트"""
+    try:
+        # 1. YouTube 검색 테스트
+        test_query = "감자 요리"
+
+        # YouTube 검색
+        videos = await search_youtube_video(test_query)
+        if not videos:
+            return JSONResponse({
+                "status": "error",
+                "message": "YouTube 검색 결과가 없습니다.",
+                "query": test_query
+            }, status_code=404)
+
+        # 첫 번째 영상 선택
+        selected_video = videos[0]
+
+        # 2. 선택된 영상으로 GPT 테스트
+        try:
+            recipe = await generate_recipe_with_gpt(selected_video["url"])
+            return JSONResponse({
+                "status": "success",
+                "message": "전체 프로세스 테스트 완료",
+                "query": test_query,
+                "selected_video": {
+                    "title": selected_video["title"],
+                    "url": selected_video["url"],
+                    "thumbnail": selected_video["thumbnail"]
+                },
+                "recipe": recipe
+            })
+        except Exception as e:
+            return JSONResponse({
+                "status": "error",
+                "message": f"GPT 레시피 생성 실패: {str(e)}",
+                "query": test_query,
+                "selected_video": {
+                    "title": selected_video["title"],
+                    "url": selected_video["url"],
+                    "thumbnail": selected_video["thumbnail"]
+                }
+            }, status_code=500)
+
+    except Exception as e:
+        return JSONResponse({
+            "status": "error",
+            "message": f"전체 프로세스 테스트 실패: {str(e)}",
+            "query": test_query
+        }, status_code=500)
