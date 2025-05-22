@@ -863,7 +863,11 @@ async def search_youtube_video(query: str) -> List[dict]:
         async with httpx.AsyncClient() as ac:
             response = await ac.get(url, params=params)
             response.raise_for_status()
-            data = response.json()
+
+            try:
+                data = response.json()
+            except json.JSONDecodeError as e:
+                raise ValueError(f"YouTube API 응답을 파싱할 수 없습니다: {str(e)}")
 
             if "error" in data:
                 error_message = data["error"].get("message", "Unknown error")
@@ -875,14 +879,28 @@ async def search_youtube_video(query: str) -> List[dict]:
             results = []
             for item in data["items"]:
                 try:
+                    if not isinstance(item, dict):
+                        continue
+
+                    video_id = item.get("id", {}).get("videoId")
+                    snippet = item.get("snippet", {})
+                    thumbnails = snippet.get("thumbnails", {})
+                    high_thumbnail = thumbnails.get("high", {})
+
+                    if not all([video_id, snippet, high_thumbnail]):
+                        continue
+
                     video_data = {
-                        "video_id": item["id"]["videoId"],
-                        "title": item["snippet"]["title"],
-                        "thumbnail": item["snippet"]["thumbnails"]["high"]["url"],
-                        "url": f"https://www.youtube.com/watch?v={item['id']['videoId']}",
+                        "video_id": video_id,
+                        "title": snippet.get("title", ""),
+                        "thumbnail": high_thumbnail.get("url", ""),
+                        "url": f"https://www.youtube.com/watch?v={video_id}",
                     }
-                    results.append(video_data)
-                except KeyError as e:
+
+                    # 필수 필드가 모두 있는지 확인
+                    if all(video_data.values()):
+                        results.append(video_data)
+                except Exception as e:
                     continue
 
             return results
@@ -915,7 +933,11 @@ async def get_video_metadata(video_url: str) -> dict:
         async with httpx.AsyncClient() as ac:
             response = await ac.get(url, params=params)
             response.raise_for_status()
-            data = response.json()
+
+            try:
+                data = response.json()
+            except json.JSONDecodeError as e:
+                raise ValueError(f"YouTube API 응답을 파싱할 수 없습니다: {str(e)}")
 
             if "error" in data:
                 error_message = data["error"].get("message", "Unknown error")
@@ -924,23 +946,33 @@ async def get_video_metadata(video_url: str) -> dict:
             if "items" not in data or not data["items"]:
                 raise ValueError(f"비디오를 찾을 수 없습니다. (ID: {video_id})")
 
-            item = data["items"][0]["snippet"]
-            return {
-                "title": item["title"],
-                "description": item["description"],
+            item = data["items"][0].get("snippet", {})
+            if not item:
+                raise ValueError("비디오 정보가 올바르지 않습니다.")
+
+            metadata = {
+                "title": item.get("title", ""),
+                "description": item.get("description", ""),
                 "tags": item.get("tags", []),
                 "url": video_url
             }
+
+            # 필수 필드 검증
+            if not metadata["title"]:
+                raise ValueError("비디오 제목을 찾을 수 없습니다.")
+
+            return metadata
+
     except Exception as e:
         raise ValueError(f"비디오 메타데이터 가져오기 실패: {str(e)}")
 
-async def generate_recipe_with_gpt(video_url: str):
+async def generate_recipe_with_gpt(video_url: str) -> dict:
     """GPT API를 사용하여 YouTube 영상의 레시피를 분석하고 생성합니다."""
     try:
         # 비디오 메타데이터 가져오기
         metadata = await get_video_metadata(video_url)
         if not metadata:
-            raise create_error_response("비디오 정보를 가져올 수 없습니다.", status.HTTP_400_BAD_REQUEST)
+            raise ValueError("비디오 정보를 가져올 수 없습니다.")
 
         prompt = f"""다음 YouTube 영상의 정보를 바탕으로 요리 레시피를 생성해주세요.
 
@@ -991,7 +1023,7 @@ async def generate_recipe_with_gpt(video_url: str):
         response = client.chat.completions.create(
             model="gpt-4.1",
             messages=messages,
-            temperature=0.3,  # 더 일관된 응답을 위해 temperature 낮춤
+            temperature=0.3,
             max_tokens=2000,
             response_format={ "type": "json_object" }
         )
@@ -1026,15 +1058,18 @@ async def generate_recipe_with_gpt(video_url: str):
                 if len(step) < 20:
                     raise ValueError("Recipe step description must be at least 20 characters")
 
-            return recipe
+            return {
+                "status": "success",
+                "recipe": recipe
+            }
 
         except json.JSONDecodeError as e:
-            raise create_error_response(f"GPT API 응답을 파싱할 수 없습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+            raise ValueError(f"GPT API 응답을 파싱할 수 없습니다: {str(e)}")
         except ValueError as e:
-            raise create_error_response(f"레시피 데이터 형식이 올바르지 않습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+            raise ValueError(f"레시피 데이터 형식이 올바르지 않습니다: {str(e)}")
 
     except Exception as e:
-        raise create_error_response(f"레시피 생성 중 오류가 발생했습니다: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+        raise ValueError(f"레시피 생성 중 오류가 발생했습니다: {str(e)}")
 
 @app.post("/api/generate-recipe")
 @handle_db_operation("레시피 생성")
@@ -1115,13 +1150,15 @@ async def generate_recipe_details(
     """선택된 YouTube 영상에 대한 레시피 상세 정보를 생성합니다."""
     try:
         # GPT로 레시피 상세 정보 생성
-        recipe = await generate_recipe_with_gpt(video_url)
+        result = await generate_recipe_with_gpt(video_url)
 
-        if not recipe:
+        if not result or "recipe" not in result:
             raise create_error_response(
                 "레시피 상세 정보를 생성할 수 없습니다.",
                 status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+        recipe = result["recipe"]
 
         # 레시피 저장
         new_recipe = Recipe(
@@ -1204,14 +1241,16 @@ async def test_gpt():
         test_video_url = "https://www.youtube.com/watch?v=rDwyR7gkxvU"  # 감자조림 레시피 영상
 
         # GPT로 레시피 생성
-        recipe = await generate_recipe_with_gpt(test_video_url)
+        result = await generate_recipe_with_gpt(test_video_url)
 
-        if not recipe:
+        if not result or "recipe" not in result:
             return JSONResponse({
                 "status": "error",
                 "message": "GPT API 응답이 없습니다.",
                 "video_url": test_video_url
             }, status_code=500)
+
+        recipe = result["recipe"]
 
         # 결과 검증
         validation = {
@@ -1275,7 +1314,7 @@ async def test_full_flow():
 
         # 2. 선택된 영상으로 GPT 테스트
         try:
-            recipe = await generate_recipe_with_gpt(selected_video["url"])
+            result = await generate_recipe_with_gpt(selected_video["url"])
             return JSONResponse({
                 "status": "success",
                 "message": "전체 프로세스 테스트 완료",
@@ -1285,7 +1324,7 @@ async def test_full_flow():
                     "url": selected_video["url"],
                     "thumbnail": selected_video["thumbnail"]
                 },
-                "recipe": recipe
+                "recipe": result["recipe"]
             })
         except Exception as e:
             return JSONResponse({
